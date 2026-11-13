@@ -5,6 +5,7 @@ import { ChevronDown, ChevronRight } from 'lucide-react';
 
 import type { ProviderModelOption } from '@/shared/types';
 import { DEFAULT_EFFORT_VALUE } from '@/shared/constants';
+import { isAccountModelCopy, joinAccountModel, listModelAccounts, splitAccountModel } from '@/shared/utils';
 import { useComposerMenuAnchor } from '@/modules/chat/hooks/useComposerMenuAnchor';
 import { useUltracodeToggle } from '@/modules/chat/hooks/useUltracodeToggle';
 import {
@@ -66,7 +67,14 @@ function ComposerModelMenu({
     () => modelOptions.find((option) => option.value === model) ?? null,
     [model, modelOptions],
   );
-  const modelLabel = selectedModelOption?.label || model;
+  // Extra Claude accounts arrive as "<account>:<model>" copies: list the plain
+  // models, and the accounts as their own section.
+  const plainModelOptions = useMemo(() => modelOptions.filter((option) => !isAccountModelCopy(option)), [modelOptions]);
+  const accounts = useMemo(() => listModelAccounts(modelOptions), [modelOptions]);
+  const { accountId, model: plainModel } = splitAccountModel(model, modelOptions);
+  const plainModelOption = plainModelOptions.find((option) => option.value === plainModel) ?? null;
+  const accountLabel = accounts.find((account) => account.id === accountId)?.label ?? '';
+  const modelLabel = (plainModelOption?.label || plainModel) + (accountLabel ? ` · ${accountLabel}` : '');
   const [isUltracodeOn, setUltracodeOn] = useUltracodeToggle();
   const offersUltracode = Boolean(selectedModelOption?.ultracode);
 
@@ -137,9 +145,27 @@ function ComposerModelMenu({
             </>
           )}
 
-          {hasModelSection && (
+          {accounts.length > 0 && (
             <>
               {hasEffortSection && <ComposerMenuSeparator />}
+              <ComposerMenuHeading>Account</ComposerMenuHeading>
+              {[{ id: '', label: 'Default login' }, ...accounts].map((account) => (
+                <ComposerMenuItem
+                  key={account.id || 'default'}
+                  label={account.label}
+                  isSelected={account.id === accountId}
+                  onSelect={() => {
+                    onSelectModel(joinAccountModel(account.id, plainModel));
+                    setIsOpen(false);
+                  }}
+                />
+              ))}
+            </>
+          )}
+
+          {hasModelSection && (
+            <>
+              {(hasEffortSection || accounts.length > 0) && <ComposerMenuSeparator />}
               <ComposerMenuItem
                 role="menuitem"
                 label={modelLabel}
@@ -158,18 +184,18 @@ function ComposerModelMenu({
                   <ComposerMenuHeading>
                     {t('composer.model', { defaultValue: 'Model' })}
                   </ComposerMenuHeading>
-                  {modelOptions.length === 0 && modelsLoading && (
+                  {plainModelOptions.length === 0 && modelsLoading && (
                     <p className="px-2.5 py-1.5 text-sm text-muted-foreground">
                       {t('composer.loadingModels', { defaultValue: 'Loading models…' })}
                     </p>
                   )}
-                  {modelOptions.map((option) => (
+                  {plainModelOptions.map((option) => (
                     <ComposerMenuItem
                       key={option.value}
                       label={option.label || option.value}
-                      isSelected={option.value === model}
+                      isSelected={option.value === plainModel}
                       onSelect={() => {
-                        onSelectModel(option.value);
+                        onSelectModel(joinAccountModel(accountId, option.value));
                         setIsOpen(false);
                       }}
                     />

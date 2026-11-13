@@ -2,7 +2,8 @@
 > **Modified version.** This repository is an independent fork of
 > CloudCLI UI (https://github.com/siteboon/claudecodeui) with local changes.
 > It is not the original software and is not endorsed by Siteboon AI B.V.
-> See [FORK.md](FORK.md) for what is changed and how to install it.
+> See [FORK.md](FORK.md) for what is changed and how to install it, or paste the prompt in
+> [INSTALL-WITH-AI.md](INSTALL-WITH-AI.md) into an AI assistant to have it installed for you.
 
 <div align="center">
  <img src="public/logo.svg" alt="CloudCLI UI" width="64" height="64">

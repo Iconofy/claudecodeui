@@ -26,6 +26,7 @@ import type {
   ProviderModelsDefinition,CommandModalPayload,CostCommandData,HelpCommandData,ModelCommandData,StatusCommandData
 } from '@/shared/types';
 import ModelLibraryPanel from '@/modules/chat/modals/ModelLibraryPanel';
+import { isAccountModelCopy, joinAccountModel, splitAccountModel } from '@/shared/utils';
 
 type CommandResultModalProps = {
   payload: CommandModalPayload | null;
@@ -257,7 +258,7 @@ function ModelsContent({
   const liveDefinition = providerModelCatalog[currentProvider];
   const availableOptions = useMemo<ProviderModelOption[]>(() => {
     if (liveDefinition?.OPTIONS && liveDefinition.OPTIONS.length > 0) {
-      return liveDefinition.OPTIONS;
+      return liveDefinition.OPTIONS.filter((option) => !isAccountModelCopy(option));
     }
 
     if (Array.isArray(data?.availableOptions) && data.availableOptions.length > 0) {
@@ -282,7 +283,10 @@ function ModelsContent({
   const hasConcreteSessionId = typeof currentSessionId === 'string' && currentSessionId.trim().length > 0;
   const showSearch = availableOptions.length > 6;
 
-  const handleSelectModel = async (model: string) => {
+  const handleSelectModel = async (pickedModel: string) => {
+    // The list shows plain models; keep the account the current model runs on.
+    const allOptions = liveDefinition?.OPTIONS ?? [];
+    const model = joinAccountModel(splitAccountModel(currentModel, allOptions).accountId, pickedModel);
     setChangingModel(model);
     try {
       const result = await onSelectProviderModel(currentProvider, model, currentSessionId);
@@ -349,9 +353,12 @@ function ModelsContent({
         <div className="scrollbar-thin -mr-1 min-h-0 flex-1 overflow-y-auto pr-1">
           <div className="grid gap-2 md:grid-cols-2">
             {filteredOptions.map((option, index) => {
-              const isCurrent = option.value === currentModel;
-              const isPendingSelection = option.value === pendingSessionModel;
-              const isChanging = option.value === changingModel;
+              const allOptions = liveDefinition?.OPTIONS ?? [];
+              const isCurrent = option.value === splitAccountModel(currentModel, allOptions).model;
+              const isPendingSelection = Boolean(pendingSessionModel)
+                && option.value === splitAccountModel(pendingSessionModel ?? '', allOptions).model;
+              const isChanging = Boolean(changingModel)
+                && option.value === splitAccountModel(changingModel ?? '', allOptions).model;
               return (
                 <button
                   key={option.value}

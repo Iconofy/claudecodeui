@@ -29,6 +29,7 @@ import {
   CLAUDE_PREDEFINED_MODELS,
   CLAUDE_ULTRACODE_EFFORT
 } from '@/modules/providers/list/claude/claude-models.provider.js';
+import { applyClaudeAccountEnv, splitClaudeAccountModel } from '@/modules/providers/list/claude/claude-accounts.js';
 import { resolveClaudeCodeExecutablePath } from '@/shared/claude-cli-path.js';
 import { askClaudeSideQuestion } from '@/modules/providers/list/claude/claude-side-question.provider.js';
 import {
@@ -458,7 +459,12 @@ function mapCliOptionsToSDK(options: AnyRecord = {}) {
 
   sdkOptions.disallowedTools = settings.disallowedTools || [];
 
-  sdkOptions.model = options.model || CLAUDE_PREDEFINED_MODELS.DEFAULT;
+  // "<account>:<model>" runs the CLI with that account's environment.
+  const accountModel = splitClaudeAccountModel(options.model || CLAUDE_PREDEFINED_MODELS.DEFAULT);
+  sdkOptions.model = accountModel.model;
+  if (accountModel.account) {
+    sdkOptions.env = applyClaudeAccountEnv(sdkOptions.env, accountModel.account);
+  }
 
   applyClaudeEffort(sdkOptions, resolveClaudeEffort(
     sdkOptions.model,

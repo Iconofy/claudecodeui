@@ -9,7 +9,7 @@ License: AGPL-3.0-or-later, the same as upstream, including the additional terms
 
 Please report problems with the changes below to this fork, not to the upstream project.
 
-## What is changed (2026-11-13)
+## What is changed (2026-11-14)
 
 ### Sidebar
 - **Project menu (⋮).** On desktop, the separate rename and delete buttons on a project row
@@ -52,6 +52,11 @@ Please report problems with the changes below to this fork, not to the upstream 
 - **Running timer** counts the current turn of a terminal Claude session, not the time since
   the CLI process started.
 
+### Extra Claude accounts
+- Add any number of Claude accounts in `~/.cloudcli/claude-accounts.json` and pick the
+  account per chat in the model menu ("Account" section). A chat keeps its account when you
+  come back to it. See [Adding Claude accounts](#adding-claude-accounts).
+
 ### Look
 - Fonts: Ubuntu for the UI and chat, Fira Code for code and the terminal (Google Fonts).
   Ubuntu has no Thai or CJK glyphs; those use the device's fonts.
@@ -59,7 +64,10 @@ Please report problems with the changes below to this fork, not to the upstream 
 
 ## Install
 
-Requirements: Node.js 22 or later, and git.
+**Easiest:** paste the prompt in [INSTALL-WITH-AI.md](INSTALL-WITH-AI.md) into an AI coding
+assistant such as Claude Code, and it will do the steps below for you.
+
+Requirements: Node.js 22 or later, git, and Claude Code installed and logged in.
 
 ```bash
 git clone <this repository's URL> claudecodeui
@@ -73,6 +81,74 @@ The in-app **Update** button on a git install runs `git checkout main && git pul
 in this folder, so it pulls this fork's `main` branch. Run `npm run build` after it, then restart.
 Do not run `npm install -g @cloudcli-ai/cloudcli`: that installs the original package, without
 these changes.
+
+## Adding Claude accounts
+
+Without this file the app uses your normal Claude login only. To add more accounts, create
+`~/.cloudcli/claude-accounts.json` (on Windows: `C:\Users\<you>\.cloudcli\claude-accounts.json`):
+
+```json
+{
+  "accounts": [
+    {
+      "id": "work",
+      "label": "Work",
+      "env": { "CLAUDE_CODE_OAUTH_TOKEN": "sk-ant-oat01-..." }
+    },
+    {
+      "id": "second",
+      "label": "Second login",
+      "configDir": "~/.claude-second"
+    },
+    {
+      "id": "proxy",
+      "label": "My proxy",
+      "env": { "ANTHROPIC_BASE_URL": "https://example.com", "ANTHROPIC_AUTH_TOKEN": "..." }
+    }
+  ]
+}
+```
+
+- `id`: lowercase letters, digits and `-` (up to 32). It is stored with each chat
+  (`work:opus`), so do not rename it later. `label` is what the menu shows.
+- The file is read again whenever it changes; reload the web page to see the new list.
+- It holds secrets. It stays on the server and only `id` and `label` reach the browser. On
+  macOS and Linux, run `chmod 600 ~/.cloudcli/claude-accounts.json`.
+- Built-in models get one copy per account. Custom models (Manage models) run on the
+  default login only.
+
+There are three ways to set up an account:
+
+**1. Token (simplest).** Sign in to the other Claude account in your browser, run
+`claude setup-token` in a terminal, follow the link, and put the token it prints in
+`env.CLAUDE_CODE_OAUTH_TOKEN`. Chats are stored with your other chats, so history, search
+and resume work as usual. `/usage` may show "Unavailable" for such a token.
+
+**2. Separate login folder (`configDir`).** Log in once in its own folder:
+
+```bash
+CLAUDE_CONFIG_DIR=~/.claude-second claude        # macOS / Linux, then type /login
+```
+```powershell
+$env:CLAUDE_CONFIG_DIR="$HOME\.claude-second"; claude   # Windows PowerShell, then /login
+```
+
+The CLI writes chat history into that folder, but the app reads chats from `~/.claude/projects`.
+Before the first chat on this account, replace its `projects` folder with a link to the main one:
+
+```bash
+rm -rf ~/.claude-second/projects && ln -s ~/.claude/projects ~/.claude-second/projects
+```
+```powershell
+Remove-Item -Recurse -Force "$HOME\.claude-second\projects" -ErrorAction SilentlyContinue
+New-Item -ItemType Junction -Path "$HOME\.claude-second\projects" -Target "$HOME\.claude\projects"
+```
+
+(Do the same for the `sessions` folder if you want the "running" indicator for terminal
+chats on that account.) `/usage` reads this folder's login.
+
+**3. Another Claude-compatible service.** Put its `ANTHROPIC_BASE_URL` and
+`ANTHROPIC_AUTH_TOKEN` (or `ANTHROPIC_API_KEY`) in `env`. `/usage` is not available for it.
 
 ## Keeping up with upstream
 

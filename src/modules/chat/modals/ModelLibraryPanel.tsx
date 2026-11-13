@@ -86,7 +86,7 @@ export default function ModelLibraryPanel({
     [options],
   );
   const predefinedModels = useMemo(
-    () => options.filter((option) => !option.isCustom),
+    () => options.filter((option) => !option.isCustom && !option.account),
     [options],
   );
   // Levels a custom model of this provider may declare, weakest first, exactly

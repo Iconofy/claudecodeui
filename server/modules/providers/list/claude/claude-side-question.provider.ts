@@ -2,6 +2,7 @@ import { query } from '@anthropic-ai/claude-agent-sdk';
 
 import { resolveClaudeCodeExecutablePath } from '@/shared/claude-cli-path.js';
 import { errorMessage } from '@/shared/utils.js';
+import { applyClaudeAccountEnv, splitClaudeAccountModel } from '@/modules/providers/list/claude/claude-accounts.js';
 import type {
   AnyRecord,
   BackgroundTaskSummary,
@@ -216,11 +217,14 @@ export async function askClaudeSideQuestion(
   const now = deps.now ?? Date.now;
   const promptText = buildForkPromptText(request.question, deps.liveTasks, now);
 
+  // The fork must run on the session's account, with the plain model id.
+  const accountModel = splitClaudeAccountModel(request.model);
   return runSideQuestionQuery(request, sink, promptText, {
+    ...(accountModel.account ? { env: applyClaudeAccountEnv({ ...process.env }, accountModel.account) } : {}),
     resume: request.providerSessionId ?? undefined,
     forkSession: true,
     // Keeps the fork on the session's prompt cache; left unset lets the SDK
     // pick its own default instead of sending another provider's model id.
-    model: request.model || undefined,
+    model: accountModel.model || undefined,
   }, createQueryFn);
 }

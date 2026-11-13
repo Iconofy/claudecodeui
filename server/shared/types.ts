@@ -88,6 +88,12 @@ export type ProviderModelOption = {
   };
   /** Claude: the model accepts the session-scoped Ultracode toggle (shown next to its effort levels). */
   ultracode?: boolean;
+  /**
+   * Claude: set on the "<account>:<model>" copy of a built-in model that runs on an extra
+   * account from claude-accounts.json. Pickers list only options without it and offer the
+   * account separately.
+   */
+  account?: { id: string; label: string };
 };
 
 /**

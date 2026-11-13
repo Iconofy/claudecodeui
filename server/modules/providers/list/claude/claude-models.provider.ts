@@ -1,6 +1,7 @@
 import { readFile } from 'node:fs/promises';
 
 import { sessionsDb } from '@/modules/database/index.js';
+import { loadClaudeAccounts } from '@/modules/providers/list/claude/claude-accounts.js';
 import type { IProviderModels } from '@/shared/interfaces.js';
 import type {
   ProviderCurrentActiveModel,
@@ -171,6 +172,26 @@ export const CLAUDE_PREDEFINED_MODELS: ProviderModelsDefinition = {
   DEFAULT: 'default',
 };
 
+/**
+ * Adds an "<account>:<model>" copy of every model for each account in
+ * claude-accounts.json, so lookups (effort, Ultracode, session model) work on
+ * the joined value unchanged. The copies carry `account`; pickers hide them.
+ */
+function withClaudeAccountCopies(definition: ProviderModelsDefinition): ProviderModelsDefinition {
+  const accounts = loadClaudeAccounts();
+  if (accounts.length === 0) {
+    return definition;
+  }
+  const copies = accounts.flatMap((account) => definition.OPTIONS.map((option) => ({
+    ...option,
+    value: `${account.id}:${option.value}`,
+    label: `${option.label} · ${account.label}`,
+    description: account.description || `Runs on the ${account.label} account.`,
+    account: { id: account.id, label: account.label },
+  })));
+  return { ...definition, OPTIONS: [...definition.OPTIONS, ...copies] };
+}
+
 export const findClaudeModelOption = (model: string | undefined | null): ProviderModelOption | null => {
   const normalizedModel = typeof model === 'string' ? model.trim() : '';
   if (!normalizedModel) {
@@ -297,7 +318,7 @@ export class ClaudeProviderModels implements IProviderModels {
     // const supportedModels = await queryInstance.supportedModels();
     // queryInstance.close();
     // return buildClaudeModelsDefinition(supportedModels);
-    return CLAUDE_PREDEFINED_MODELS;
+    return withClaudeAccountCopies(CLAUDE_PREDEFINED_MODELS);
   }
 
   async getCurrentActiveModel(sessionId?: string): Promise<ProviderCurrentActiveModel> {

@@ -25,6 +25,7 @@ import {
 import ModelGroupList, { type ModelGroup } from "@/modules/chat/composer/ModelGroupList";
 import ModelLibraryPanel from "@/modules/chat/modals/ModelLibraryPanel";
 import { writeSelectedProvider } from '@/shared/selectedProvider';
+import { isAccountModelCopy, joinAccountModel, splitAccountModel } from '@/shared/utils';
 
 const PROVIDER_META: { id: LLMProvider; name: string }[] = [
   { id: "claude", name: "Anthropic" },
@@ -127,7 +128,7 @@ export default function ProviderSelectionEmptyState({
       key: meta.id,
       provider: meta.id,
       name: meta.name,
-      models: providerModelCatalog[meta.id]?.OPTIONS ?? [],
+      models: (providerModelCatalog[meta.id]?.OPTIONS ?? []).filter((option) => !isAccountModelCopy(option)),
     })),
     [providerModelCatalog],
   );
@@ -165,11 +166,13 @@ export default function ProviderSelectionEmptyState({
     (providerId: LLMProvider, modelValue: string) => {
       setProvider(providerId);
       writeSelectedProvider(providerId);
-      setProviderModel(providerId, modelValue);
+      // Keep the extra Claude account the provider's current model runs on.
+      const options = providerModelCatalog[providerId]?.OPTIONS ?? [];
+      setProviderModel(providerId, joinAccountModel(splitAccountModel(providerModels[providerId] ?? '', options).accountId, modelValue));
       setPickerOpen(false);
       setTimeout(() => textareaRef.current?.focus(), 100);
     },
-    [setProvider, setProviderModel, setPickerOpen, textareaRef],
+    [setProvider, setProviderModel, setPickerOpen, textareaRef, providerModelCatalog, providerModels],
   );
 
   const openModelLibrary = () => {

@@ -1,7 +1,7 @@
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
-import type { Project, ProjectSession, QuickSettingsTab, SlashCommand } from '@/shared/types';
+import type { Project, ProviderModelOption, ProjectSession, QuickSettingsTab, SlashCommand } from '@/shared/types';
 
 //----------------- DEPLOYMENT MODE ------------
 
@@ -270,3 +270,37 @@ export const getQuickSettingsTabId = (tab: QuickSettingsTab): string => `quick-s
 
 /** DOM id of the tabpanel a quick settings tab controls; pairs with `getQuickSettingsTabId`. */
 export const getQuickSettingsTabPanelId = (tab: QuickSettingsTab): string => `quick-settings-tabpanel-${tab}`;
+
+// ---------------------------
+
+//----------------- CLAUDE ACCOUNTS ------------
+
+/**
+ * True for the server's "<account>:<model>" copy of a model (an extra Claude
+ * account from claude-accounts.json). Model lists show only the other options.
+ */
+export const isAccountModelCopy = (option: ProviderModelOption): boolean => Boolean(option.account);
+
+/** The extra accounts present in a model catalog, in catalog order. */
+export function listModelAccounts(options: ProviderModelOption[]): { id: string; label: string }[] {
+  const accounts = new Map<string, { id: string; label: string }>();
+  for (const option of options) {
+    if (option.account && !accounts.has(option.account.id)) {
+      accounts.set(option.account.id, option.account);
+    }
+  }
+  return [...accounts.values()];
+}
+
+/**
+ * Splits a model value into its extra account ('' = the default login) and the
+ * plain model. Only values the catalog marks as account copies are split, so a
+ * model id that merely contains a colon stays whole.
+ */
+export function splitAccountModel(value: string, options: ProviderModelOption[]): { accountId: string; model: string } {
+  const account = options.find((option) => option.value === value)?.account;
+  return account ? { accountId: account.id, model: value.slice(account.id.length + 1) } : { accountId: '', model: value };
+}
+
+/** Joins an account id ('' = default login) and a plain model into a model value. */
+export const joinAccountModel = (accountId: string, model: string): string => (accountId ? `${accountId}:${model}` : model);
