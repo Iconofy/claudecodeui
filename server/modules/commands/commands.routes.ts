@@ -204,6 +204,12 @@ const builtInCommands = [
     metadata: { type: "builtin" },
   },
   {
+    name: "/usage",
+    description: "Show session cost and Claude plan usage",
+    namespace: "builtin",
+    metadata: { type: "builtin" },
+  },
+  {
     name: "/memory",
     description: "Open CLAUDE.md memory file for editing",
     namespace: "builtin",
@@ -227,6 +233,51 @@ const builtInCommands = [
  * Built-in command handlers
  * Each handler returns { type: 'builtin', action: string, data: any }
  */
+/**
+ * Plan usage rows (5-hour and weekly windows) for the Claude login of this
+ * machine, read from the CLI's own credentials file. Read-only: an expired
+ * token is reported, never refreshed here, so the CLI's login is not touched.
+ * Uses the same unofficial endpoint as the CLI's /usage; it may change.
+ */
+const readClaudePlanUsage = async () => {
+  const configDir = (globalThis.process?.env?.CLAUDE_CONFIG_DIR || "").trim() || path.join(os.homedir(), ".claude");
+  let oauth;
+  try {
+    oauth = JSON.parse(await fs.readFile(path.join(configDir, ".credentials.json"), "utf8"))?.claudeAiOauth;
+  } catch {
+    oauth = null;
+  }
+  if (!oauth?.accessToken) {
+    return [{ label: "Plan usage", value: "No Claude login found" }];
+  }
+  if (Number(oauth.expiresAt || 0) && Number(oauth.expiresAt) < Date.now()) {
+    return [{ label: "Plan usage", value: "Login expired: run claude once to refresh it" }];
+  }
+  try {
+    const res = await fetch("https://api.anthropic.com/api/oauth/usage", {
+      headers: { Authorization: "Bearer " + oauth.accessToken },
+    });
+    if (!res.ok) {
+      return [{ label: "Plan usage", value: "Unavailable (HTTP " + res.status + ")" }];
+    }
+    const usage = await res.json();
+    const rows = [];
+    const addBucket = (label, bucket) => {
+      if (bucket && typeof bucket.utilization === "number") {
+        const reset = new Date(bucket.resets_at);
+        const resetText = Number.isNaN(reset.getTime()) ? "" : " \u00b7 resets " + reset.toLocaleString();
+        rows.push({ label, value: Math.round(bucket.utilization) + "%" + resetText });
+      }
+    };
+    addBucket("Current session (5h)", usage.five_hour);
+    addBucket("This week (all models)", usage.seven_day);
+    addBucket("This week (Opus)", usage.seven_day_opus);
+    return rows.length ? rows : [{ label: "Plan usage", value: "No active limits" }];
+  } catch {
+    return [{ label: "Plan usage", value: "Unavailable" }];
+  }
+};
+
 const builtInHandlers = {
   "/help": async (args, context) => {
     const helpText = `# Claude Code Commands
@@ -355,6 +406,14 @@ Custom commands can be created in:
         model,
       },
     };
+  },
+
+  "/usage": async (args, context) => {
+    const base = await builtInHandlers["/cost"](args, context);
+    const planUsage = readModelProvider(context?.provider) === "claude"
+      ? await readClaudePlanUsage()
+      : [{ label: "Plan usage", value: "Only available for Claude" }];
+    return { ...base, command: "/usage", data: { ...base.data, planUsage } };
   },
 
   "/status": async (args, context) => {

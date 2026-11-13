@@ -89,7 +89,11 @@ async function readLiveBusySession(filePath: string): Promise<LiveClaudeCliSessi
     return null;
   }
 
-  const startedAt = typeof record.startedAt === 'number' ? record.startedAt : Date.now();
+  // The CLI stamps statusUpdatedAt when the session turns busy, so this times
+  // the current turn; startedAt (process start) is the fallback.
+  const startedAt = typeof record.statusUpdatedAt === 'number'
+    ? record.statusUpdatedAt
+    : typeof record.startedAt === 'number' ? record.startedAt : Date.now();
   return { providerSessionId, startedAt };
 }
 

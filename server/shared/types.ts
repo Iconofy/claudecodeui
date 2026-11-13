@@ -86,6 +86,8 @@ export type ProviderModelOption = {
       description?: string;
     }[];
   };
+  /** Claude: the model accepts the session-scoped Ultracode toggle (shown next to its effort levels). */
+  ultracode?: boolean;
 };
 
 /**
@@ -748,6 +750,8 @@ export type ProviderPermissionDecision = {
   updatedInput?: unknown;
   message?: string;
   rememberEntry?: unknown;
+  /** Permission mode to switch the running session to when the tool is allowed (never `plan`). */
+  permissionMode?: string;
 };
 
 export type ProviderRuntimePermissionGateway = {

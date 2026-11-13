@@ -54,6 +54,18 @@ export const PlanDisplay: React.FC<PlanDisplayProps> = ({
     }
   };
 
+  // Approves the plan and switches to bypass mode: the composer (later messages) and,
+  // through the approval, the run that is executing now.
+  const handleBuildWithBypass = () => {
+    if (pendingRequest && permissionCtx) {
+      permissionCtx.selectPermissionMode?.('bypassPermissions');
+      permissionCtx.handlePermissionDecision(pendingRequest.requestId, {
+        allow: true,
+        permissionMode: 'bypassPermissions',
+      });
+    }
+  };
+
   const handleRevise = () => {
     if (pendingRequest && permissionCtx) {
       permissionCtx.handlePermissionDecision(pendingRequest.requestId, {
@@ -127,6 +139,9 @@ export const PlanDisplay: React.FC<PlanDisplayProps> = ({
               className="text-muted-foreground"
             >
               Revise
+            </Button>
+            <Button variant="outline" size="sm" onClick={handleBuildWithBypass}>
+              Build &amp; bypass mode
             </Button>
             <Button size="sm" onClick={handleBuild}>
               Build{' '}

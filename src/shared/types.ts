@@ -21,6 +21,8 @@ export type ProviderModelOption = {
       description?: string;
     }[];
   };
+  /** Claude: the model accepts the session-scoped Ultracode toggle (shown next to its effort levels). */
+  ultracode?: boolean;
 };
 
 /**
@@ -775,6 +777,8 @@ export type CostCommandData = {
   };
   provider?: string;
   model?: string;
+  /** Plan usage rows added by `/usage` (absent for `/cost`). */
+  planUsage?: { label: string; value: string }[];
 };
 
 /** Result payload of the chat `/status` slash command, carrying server version, uptime, provider/model and process telemetry for the command modal's status view. */
@@ -1713,7 +1717,7 @@ export type ThemeMode = 'light' | 'dark' | 'system';
 export type ProjectSortOrder = 'name' | 'date';
 
 /** Which list the sidebar is currently showing: projects, conversation search results, running sessions or archived items. */
-export type SidebarSearchMode = 'projects' | 'conversations' | 'running' | 'archived';
+export type SidebarSearchMode = 'projects' | 'conversations' | 'running' | 'archived' | 'trash';
 
 /** A Project narrowed to the archived state so archived entries can be listed and restored without being mistaken for active projects. */
 export type ArchivedProjectListItem = Project & { isArchived: true };
@@ -1741,7 +1745,10 @@ export type ArchivedSessionListItem = {
 export type RecentConversationListItem = Pick<
   ArchivedSessionListItem,
   'sessionId' | 'provider' | 'projectId' | 'projectDisplayName' | 'sessionTitle' | 'lastActivity'
->;
+> & {
+  /** The owning project's folder, for "Copy project path"; null when the session has none. */
+  projectPath?: string | null;
+};
 
 /**
  * The rename the sidebar currently has open, if any.

@@ -1,10 +1,10 @@
 import { memo, useState } from 'react';
 import type { KeyboardEvent } from 'react';
-import { Archive, Check, CheckSquare, Edit2, GitBranch, Loader2, MoreHorizontal, Square, Trash2, X } from 'lucide-react';
+import { Archive, Check, CheckSquare, Copy, Edit2, GitBranch, Loader2, MoreHorizontal, Square, Trash2, X } from 'lucide-react';
 import type { TFunction } from 'i18next';
 
 import { Badge, Dialog, DialogContent, DialogTitle, LLMProviderLogo, Tooltip, buttonVariants } from '@/shared/ui';
-import { cn } from '@/shared/utils';
+import { cn, copyTextToClipboard } from '@/shared/utils';
 import type { LLMProvider, Project, ProjectSession, SessionWithProvider } from '@/shared/types';
 import { useSessionForkingProviders } from '@/shared/hooks/useProviderCapabilities';
 import { PROVIDER_LABELS, createSessionViewModel, formatCompactAge } from '@/modules/sidebar/utils/sidebarProjectFormatting';
@@ -320,6 +320,20 @@ function SidebarSessionItem({
               </div>
             ) : (
               <div className="space-y-2">
+                {project.fullPath && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      void copyTextToClipboard(project.fullPath);
+                      setMobileOptionsOpen(false);
+                    }}
+                    className="flex min-h-12 w-full items-center gap-3 rounded-xl border border-border bg-muted/35 px-4 py-3 text-left text-foreground transition-colors active:bg-muted"
+                  >
+                    <Copy className="h-5 w-5 flex-shrink-0" />
+                    <span className="text-sm font-medium">Copy project path</span>
+                  </button>
+                )}
+
                 <button
                   type="button"
                   onClick={startMobileRename}
@@ -517,6 +531,7 @@ function SidebarSessionItem({
             sessionName={sessionView.sessionName}
             provider={session.__provider}
             projectId={project.projectId}
+            projectPath={project.fullPath}
             isProcessing={isProcessing}
             isEditing={isEditing}
             renameDraft={renameDraft}

@@ -1,9 +1,9 @@
-import { memo, useEffect, useRef } from 'react';
-import { Check, ChevronDown, ChevronRight, Edit3, Star, Trash2, X } from 'lucide-react';
+import { memo, useEffect, useRef, useState } from 'react';
+import { Check, ChevronDown, ChevronRight, Copy, Edit3, Folder, MoreVertical, Star, Trash2, X } from 'lucide-react';
 import type { TFunction } from 'i18next';
 
-import { Button } from '@/shared/ui';
-import { cn } from '@/shared/utils';
+import { ActionMenu, Button, Dialog, DialogContent, DialogTitle } from '@/shared/ui';
+import { cn, copyTextToClipboard } from '@/shared/utils';
 import type { LLMProvider, MCPServerStatus, Project, ProjectSession, SessionWithProvider, SidebarSessionSelection } from '@/shared/types';
 import { getTaskIndicatorStatus } from '@/modules/sidebar/utils/sidebarProjectFormatting';
 import TaskIndicator from '@/modules/sidebar/TaskIndicator';
@@ -140,6 +140,19 @@ function SidebarProjectItem({
   }, [isEditing]);
 
   const isCompact = useCompactSidebar();
+  const [isMobileOptionsOpen, setIsMobileOptionsOpen] = useState(false);
+  // A tap that closes the sheet can land on the card right after the overlay is
+  // gone (ghost click); card taps are ignored for a moment after it closes.
+  const mobileOptionsClosedAt = useRef(0);
+  const setMobileOptionsOpen = (open: boolean) => {
+    setIsMobileOptionsOpen(open);
+    if (!open) {
+      mobileOptionsClosedAt.current = Date.now();
+    }
+  };
+  const copyProjectPath = () => {
+    void copyTextToClipboard(project.fullPath || '');
+  };
 
   const toggleProject = () => onToggleProject(project.projectId);
   const toggleStarProject = () => onToggleStarProject(project.projectId);
@@ -169,7 +182,11 @@ function SidebarProjectItem({
                 !isSelected &&
                 'bg-yellow-50/50 dark:bg-yellow-900/5 border-yellow-200/30 dark:border-yellow-800/30',
             )}
-            onClick={toggleProject}
+            onClick={() => {
+              if (Date.now() - mobileOptionsClosedAt.current >= 450) {
+                toggleProject();
+              }
+            }}
           >
             <div className="flex items-center justify-between">
               <div className="flex min-w-0 flex-1 items-center gap-3">
@@ -267,25 +284,87 @@ function SidebarProjectItem({
                   </>
                 ) : (
                   <>
-                    <button
-                      className="flex h-8 w-8 items-center justify-center rounded-lg border border-red-200 bg-red-500/10 active:scale-90 dark:border-red-800 dark:bg-red-900/30"
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        onDeleteProject(project);
-                      }}
+                    <span
+                      className="flex items-center"
+                      onClick={(event) => event.stopPropagation()}
+                      onPointerDown={(event) => event.stopPropagation()}
                     >
-                      <Trash2 className="h-4 w-4 text-red-600 dark:text-red-400" />
-                    </button>
-
-                    <button
-                      className="flex h-8 w-8 items-center justify-center rounded-lg border border-primary/20 bg-primary/10 active:scale-90 dark:border-primary/30 dark:bg-primary/20"
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        onStartEditingProject(project);
-                      }}
-                    >
-                      <Edit3 className="h-4 w-4 text-primary" />
-                    </button>
+                      <button
+                        type="button"
+                        aria-label={`Project options for ${project.displayName}`}
+                        aria-haspopup="dialog"
+                        aria-expanded={isMobileOptionsOpen}
+                        className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted active:scale-95"
+                        onClick={() => setMobileOptionsOpen(true)}
+                      >
+                        <MoreVertical className="h-4 w-4" />
+                      </button>
+                      <Dialog open={isMobileOptionsOpen} onOpenChange={setMobileOptionsOpen}>
+                        <DialogContent
+                          aria-describedby={`mobile-project-options-description-${project.projectId}`}
+                          animationClassName="animate-bottom-sheet-content-show motion-reduce:animate-none"
+                          className="bottom-0 left-0 top-auto max-w-none translate-x-0 translate-y-0 rounded-b-none rounded-t-2xl border-x-0 border-b-0 px-4 pb-safe-area-inset-bottom pt-3"
+                        >
+                          <DialogTitle>Project options</DialogTitle>
+                          <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-muted-foreground/30" aria-hidden="true" />
+                          <div className="mb-4 flex items-center gap-3 px-1">
+                            <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl bg-muted">
+                              <Folder className="h-5 w-5" />
+                            </div>
+                            <div className="min-w-0">
+                              <p className="truncate text-sm font-medium text-foreground" title={project.displayName}>
+                                {project.displayName}
+                              </p>
+                              <p id={`mobile-project-options-description-${project.projectId}`} className="text-xs text-muted-foreground">
+                                {sessionCountLabel}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="space-y-2">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                copyProjectPath();
+                                setMobileOptionsOpen(false);
+                              }}
+                              className="flex min-h-12 w-full items-center gap-3 rounded-xl border border-border bg-muted/35 px-4 py-3 text-left text-foreground transition-colors active:bg-muted"
+                            >
+                              <Copy className="h-5 w-5 flex-shrink-0" />
+                              <span className="text-sm font-medium">Copy project path</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setMobileOptionsOpen(false);
+                                onStartEditingProject(project);
+                              }}
+                              className="flex min-h-12 w-full items-center gap-3 rounded-xl border border-border bg-muted/35 px-4 py-3 text-left text-foreground transition-colors active:bg-muted"
+                            >
+                              <Edit3 className="h-5 w-5 flex-shrink-0" />
+                              <span className="text-sm font-medium">{t('projects.renameProject')}</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setMobileOptionsOpen(false);
+                                onDeleteProject(project);
+                              }}
+                              className="flex min-h-12 w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-red-600 transition-colors active:bg-red-500/10 dark:text-red-400"
+                            >
+                              <Trash2 className="h-5 w-5 flex-shrink-0" />
+                              <span className="text-sm font-medium">{t('projects.deleteProject')}</span>
+                            </button>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setMobileOptionsOpen(false)}
+                            className="mb-3 mt-2 min-h-11 w-full rounded-xl text-sm font-medium text-muted-foreground transition-colors active:bg-muted"
+                          >
+                            Cancel
+                          </button>
+                        </DialogContent>
+                      </Dialog>
+                    </span>
 
                     <div className="flex h-6 w-6 items-center justify-center rounded-md bg-muted/30">
                       {isExpanded ? (
@@ -409,26 +488,41 @@ function SidebarProjectItem({
               </>
             ) : (
               <>
-                <div
-                  className="touch:opacity-100 flex h-6 w-6 cursor-pointer items-center justify-center rounded opacity-0 transition-all duration-200 hover:bg-accent group-hover:opacity-100"
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    onStartEditingProject(project);
-                  }}
-                  title={t('tooltips.renameProject')}
-                >
-                  <Edit3 className="h-3 w-3" />
-                </div>
-                <div
-                  className="touch:opacity-100 flex h-6 w-6 cursor-pointer items-center justify-center rounded opacity-0 transition-all duration-200 hover:bg-red-50 group-hover:opacity-100 dark:hover:bg-red-900/20"
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    onDeleteProject(project);
-                  }}
-                  title={t('tooltips.deleteProject')}
-                >
-                  <Trash2 className="h-3 w-3 text-red-600 dark:text-red-400" />
-                </div>
+                {/* Stops clicks (also those bubbling out of the portaled menu) from toggling the row. */}
+                <span style={{ display: 'contents' }} onClick={(event) => event.stopPropagation()}>
+                  <ActionMenu
+                    label="Project options"
+                    ariaLabel={`Project options for ${project.displayName}`}
+                    icon={MoreVertical}
+                    iconOnly
+                    portal
+                    variant="ghost"
+                    size="icon"
+                    triggerClassName="touch:opacity-100 h-6 w-6 opacity-0 group-hover:opacity-100 hover:bg-accent"
+                    menuClassName="w-[260px] rounded-xl p-1.5 shadow-xl"
+                    header={(
+                      <div className="mb-1 border-b border-border px-3 py-2">
+                        <p className="truncate text-xs font-medium text-foreground" title={project.displayName}>
+                          {project.displayName}
+                        </p>
+                        <p className="mt-0.5 text-[11px] text-muted-foreground">{sessionCountLabel}</p>
+                      </div>
+                    )}
+                    items={[
+                      { key: 'copypath', label: 'Copy project path', icon: Copy, onSelect: copyProjectPath },
+                      { key: 'rename', label: t('projects.renameProject'), icon: Edit3, onSelect: () => onStartEditingProject(project) },
+                      {
+                        key: 'delete',
+                        label: t('projects.deleteProject'),
+                        description: 'Archive it, or move it to the Recycle bin (restorable for 30 days).',
+                        icon: Trash2,
+                        isDanger: true,
+                        showDividerBefore: true,
+                        onSelect: () => onDeleteProject(project),
+                      },
+                    ]}
+                  />
+                </span>
                 {isExpanded ? (
                   <ChevronDown className="h-4 w-4 text-muted-foreground transition-colors group-hover:text-foreground" />
                 ) : (

@@ -456,6 +456,9 @@ function CostContent({ data }: { data: CostCommandData }) {
     ...(total > used
       ? [{ label: 'Context window', value: formatNumber(total), icon: Gauge }]
       : []),
+    ...(Array.isArray(data.planUsage)
+      ? data.planUsage.map((row) => ({ label: row.label, value: row.value, icon: Gauge }))
+      : []),
   ];
 
   return (

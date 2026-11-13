@@ -15,7 +15,7 @@ import type {
   NormalizedMessage,
   WorkflowAgentActivity,
 } from '@/shared/types.js';
-import { AppError, sliceTailPage } from '@/shared/utils.js';
+import { AppError, isSlashCommandMessage, RECYCLE_BIN_RETENTION_MS, sliceTailPage } from '@/shared/utils.js';
 
 /**
  * One session the running-sessions poll reports as busy.
@@ -65,7 +65,7 @@ type ArchivedSessionListItem = {
 
 type RecentSessionListItem = Pick<
   ArchivedSessionListItem,
-  'sessionId' | 'provider' | 'projectId' | 'projectDisplayName' | 'sessionTitle' | 'lastActivity'
+  'sessionId' | 'provider' | 'projectId' | 'projectPath' | 'projectDisplayName' | 'sessionTitle' | 'lastActivity'
 >;
 
 type RecentSessionsPage = {
@@ -95,7 +95,11 @@ type SessionDetails = {
 
 const MAX_CLOUDCLI_SESSION_NAME_WORDS = 4;
 
-function buildCloudCliSessionName(initialMessage: string): string {
+function buildCloudCliSessionName(initialMessage: string): string | null {
+  // A slash command is not a title; the transcript's own title fills it in later.
+  if (isSlashCommandMessage(initialMessage)) {
+    return null;
+  }
   const words = initialMessage.trim().split(/\s+/).filter(Boolean);
   return words.slice(0, MAX_CLOUDCLI_SESSION_NAME_WORDS).join(' ') || 'Untitled Session';
 }
@@ -232,6 +236,7 @@ export const sessionsService = {
         sessionId: session.session_id,
         provider: session.provider as LLMProvider,
         projectId: project?.project_id ?? null,
+        projectPath,
         projectDisplayName: resolveProjectDisplayName(projectPath, project?.custom_project_name),
         sessionTitle: session.custom_name?.trim() || session.session_id,
         lastActivity: session.updated_at ?? session.created_at ?? null,
@@ -299,13 +304,14 @@ export const sessionsService = {
 
     const sessionId = randomUUID();
     const sessionName = buildCloudCliSessionName(initialMessage);
-    sessionsDb.createAppSession(sessionId, provider, normalizedProjectPath, sessionName);
+    sessionsDb.createAppSession(sessionId, provider, normalizedProjectPath, sessionName ?? undefined);
 
     return {
       sessionId,
       provider,
       projectPath: normalizedProjectPath,
-      sessionName,
+      // The optimistic sidebar row still needs a visible name.
+      sessionName: sessionName ?? 'Untitled Session',
     };
   },
 
@@ -667,6 +673,33 @@ export const sessionsService = {
   },
 
   /**
+   * Recycle bin sessions, except those inside a binned project (they travel
+   * with the project and come back when it is restored).
+   */
+  listTrashedSessions() {
+    const result = [];
+    for (const session of sessionsDb.getTrashedSessions()) {
+      const projectPath = session.project_path?.trim() ? session.project_path : null;
+      if (projectPath && projectsDb.isProjectPathTrashed(projectPath)) {
+        continue;
+      }
+      const project = projectPath ? projectsDb.getProjectPath(projectPath) : null;
+      const trashedAt = session.trashedAt ?? '';
+      result.push({
+        sessionId: session.session_id,
+        provider: session.provider as LLMProvider,
+        projectId: project?.project_id ?? null,
+        projectPath,
+        projectDisplayName: resolveProjectDisplayName(projectPath, project?.custom_project_name),
+        sessionTitle: session.custom_name?.trim() || session.session_id,
+        trashedAt,
+        purgeAt: new Date(Date.parse(trashedAt) + RECYCLE_BIN_RETENTION_MS).toISOString(),
+      });
+    }
+    return result;
+  },
+
+  /**
    * Archives or permanently deletes one persisted session row by id.
    *
    * Soft-delete mirrors the project behavior by toggling `isArchived` so the
@@ -678,8 +711,10 @@ export const sessionsService = {
     options: {
       force?: boolean;
       deletedFromDisk?: boolean;
+      /** With `force`: move the session to the Recycle bin instead of deleting it. */
+      trash?: boolean;
     } = {},
-  ): Promise<{ sessionId: string; action: 'archived' | 'deleted'; deletedFromDisk: boolean }> {
+  ): Promise<{ sessionId: string; action: 'archived' | 'trashed' | 'deleted'; deletedFromDisk: boolean }> {
     const session = sessionsDb.getSessionById(sessionId);
     if (!session) {
       throw new AppError(`Session "${sessionId}" was not found.`, {
@@ -695,6 +730,11 @@ export const sessionsService = {
         action: 'archived',
         deletedFromDisk: false,
       };
+    }
+
+    if (options.trash) {
+      sessionsDb.trashSessionById(sessionId);
+      return { sessionId, action: 'trashed', deletedFromDisk: false };
     }
 
     let removedFromDisk = false;

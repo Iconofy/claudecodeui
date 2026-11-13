@@ -52,9 +52,10 @@ test('a wide row shows every tab and no overflow menu', () => {
   renderTabs(400, 'projects');
 
   assert.ok(screen.getByRole('button', { name: 'Projects' }));
-  assert.ok(screen.getByRole('button', { name: 'Conversations' }));
+  assert.ok(screen.getByRole('button', { name: 'Chats' }));
   assert.ok(screen.getByRole('button', { name: 'Running sessions' }));
   assert.ok(screen.getByRole('button', { name: 'Archive only' }));
+  assert.ok(screen.getByRole('button', { name: 'Recycle bin' }));
   assert.equal(screen.queryByRole('button', { name: 'More' }), null);
 });
 
@@ -62,14 +63,16 @@ test('a narrow row moves the tabs that no longer fit into the dropdown', () => {
   const changes = renderTabs(220, 'projects');
 
   assert.ok(screen.getByRole('button', { name: 'Projects' }));
-  assert.equal(screen.queryByRole('button', { name: 'Conversations' }), null);
+  // "Chats" is short enough to stay; the icon-only tabs after it move to the dropdown.
+  assert.ok(screen.getByRole('button', { name: 'Chats' }));
+  assert.ok(screen.queryByRole('button', { name: 'Recycle bin' }) === null);
 
   fireEvent.click(screen.getByRole('button', { name: 'More' }));
   assert.ok(screen.getByRole('menuitem', { name: 'Running sessions' }));
   assert.ok(screen.getByRole('menuitem', { name: 'Archive only' }));
 
-  fireEvent.click(screen.getByRole('menuitem', { name: 'Conversations' }));
-  assert.deepEqual(changes, ['conversations']);
+  fireEvent.click(screen.getByRole('menuitem', { name: 'Recycle bin' }));
+  assert.deepEqual(changes, ['trash']);
 });
 
 test('the section on screen keeps its place in the row', () => {

@@ -14,17 +14,13 @@ import {
 } from '@/shared/utils.js';
 
 /**
- * Ultracode is not one of the SDK's reasoning-effort levels. Selecting it runs the turn at
- * `xhigh` effort with standing dynamic-workflow orchestration, which the Claude runtime
- * translates into the session-scoped `ultracode` setting. It is therefore only offered on
- * models this catalog already marks as xhigh-capable.
+ * Ultracode is not one of the SDK's reasoning-effort levels: the CLI runs it "at any effort
+ * level" as the session-scoped `ultracode` setting. Built-in models that support it carry
+ * `ultracode: true` and the composer shows an on/off toggle for them. The effort value is
+ * still accepted (custom models can list it, and older sessions stored it): the runtime
+ * reads it as xhigh effort plus the toggle.
  */
 export const CLAUDE_ULTRACODE_EFFORT = 'ultracode';
-
-const ULTRACODE_EFFORT_OPTION = {
-  value: CLAUDE_ULTRACODE_EFFORT,
-  description: 'Highest effort plus standing workflow orchestration.',
-};
 
 export const CLAUDE_PREDEFINED_MODELS: ProviderModelsDefinition = {
   OPTIONS: [
@@ -54,9 +50,9 @@ export const CLAUDE_PREDEFINED_MODELS: ProviderModelsDefinition = {
           { value: 'high' },
           { value: 'xhigh' },
           { value: 'max' },
-          ULTRACODE_EFFORT_OPTION,
         ],
       },
+      ultracode: true,
     },
     {
       value: 'fable',
@@ -70,9 +66,9 @@ export const CLAUDE_PREDEFINED_MODELS: ProviderModelsDefinition = {
           { value: 'high' },
           { value: 'xhigh' },
           { value: 'max' },
-          ULTRACODE_EFFORT_OPTION,
         ],
       },
+      ultracode: true,
     },
     {
       value: 'sonnet',
@@ -86,9 +82,9 @@ export const CLAUDE_PREDEFINED_MODELS: ProviderModelsDefinition = {
           { value: 'high' },
           { value: 'xhigh' },
           { value: 'max' },
-          ULTRACODE_EFFORT_OPTION,
         ],
       },
+      ultracode: true,
     },
     {
       value: 'sonnet[1m]',
@@ -102,9 +98,9 @@ export const CLAUDE_PREDEFINED_MODELS: ProviderModelsDefinition = {
           { value: 'high' },
           { value: 'xhigh' },
           { value: 'max' },
-          ULTRACODE_EFFORT_OPTION,
         ],
       },
+      ultracode: true,
     },
     {
       value: 'opus',
@@ -118,9 +114,9 @@ export const CLAUDE_PREDEFINED_MODELS: ProviderModelsDefinition = {
           { value: 'high' },
           { value: 'xhigh' },
           { value: 'max' },
-          ULTRACODE_EFFORT_OPTION,
         ],
       },
+      ultracode: true,
     },
     {
       value: 'opus[1m]',
@@ -134,14 +130,26 @@ export const CLAUDE_PREDEFINED_MODELS: ProviderModelsDefinition = {
           { value: 'high' },
           { value: 'xhigh' },
           { value: 'max' },
-          ULTRACODE_EFFORT_OPTION,
         ],
       },
+      ultracode: true,
     },
     {
       value: 'haiku',
       label: 'Haiku',
       description: 'Fast and efficient Claude model for simple tasks.',
+      // Levels and Ultracode as the Claude CLI reports them for Haiku (checked on 2.1.316).
+      effort: {
+        default: 'high',
+        values: [
+          { value: 'low' },
+          { value: 'medium' },
+          { value: 'high' },
+          { value: 'xhigh' },
+          { value: 'max' },
+        ],
+      },
+      ultracode: true,
     },
     {
       value: 'opusplan',
@@ -155,9 +163,9 @@ export const CLAUDE_PREDEFINED_MODELS: ProviderModelsDefinition = {
           { value: 'high' },
           { value: 'xhigh' },
           { value: 'max' },
-          ULTRACODE_EFFORT_OPTION,
         ],
       },
+      ultracode: true,
     },
   ],
   DEFAULT: 'default',

@@ -16,6 +16,8 @@ type SessionRow = {
   /** The app session this one was branched from; NULL unless it is a fork. */
   forked_from_session_id: string | null;
   isArchived: number;
+  /** When the row was moved to the Recycle bin (ISO); NULL when it is not in the bin. */
+  trashedAt?: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -26,7 +28,7 @@ type RecentSessionsPage = {
 };
 
 const SESSION_ROW_COLUMNS =
-  'session_id, provider, provider_session_id, project_path, jsonl_path, custom_name, model, effort, forked_from_session_id, isArchived, created_at, updated_at';
+  'session_id, provider, provider_session_id, project_path, jsonl_path, custom_name, model, effort, forked_from_session_id, isArchived, trashedAt, created_at, updated_at';
 
 const SQLITE_UTC_TIMESTAMP_REGEX = /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/;
 
@@ -113,7 +115,7 @@ export const sessionsDb = {
            updated_at = COALESCE(?, CURRENT_TIMESTAMP),
            project_path = ?,
            jsonl_path = ?,
-           isArchived = CASE WHEN ? IS NULL OR julianday(?) > julianday(updated_at) THEN 0 ELSE isArchived END,
+           isArchived = CASE WHEN trashedAt IS NOT NULL THEN isArchived WHEN ? IS NULL OR julianday(?) > julianday(updated_at) THEN 0 ELSE isArchived END,
            custom_name = CASE
              WHEN session_id <> provider_session_id AND custom_name IS NOT NULL THEN custom_name
              ELSE COALESCE(?, custom_name)
@@ -145,7 +147,7 @@ export const sessionsDb = {
          updated_at = excluded.updated_at,
          project_path = excluded.project_path,
          jsonl_path = excluded.jsonl_path,
-         isArchived = CASE WHEN ? IS NULL OR julianday(excluded.updated_at) > julianday(sessions.updated_at) THEN 0 ELSE sessions.isArchived END,
+         isArchived = CASE WHEN sessions.trashedAt IS NOT NULL THEN sessions.isArchived WHEN ? IS NULL OR julianday(excluded.updated_at) > julianday(sessions.updated_at) THEN 0 ELSE sessions.isArchived END,
          custom_name = CASE
            WHEN sessions.session_id <> sessions.provider_session_id AND sessions.custom_name IS NOT NULL
              THEN sessions.custom_name
@@ -585,7 +587,7 @@ export const sessionsDb = {
       .prepare(
         `SELECT ${SESSION_ROW_COLUMNS}
          FROM sessions
-         WHERE isArchived = 1
+         WHERE isArchived = 1 AND trashedAt IS NULL
          ORDER BY datetime(COALESCE(updated_at, created_at)) DESC, session_id DESC`
       )
       .all() as SessionRow[];
@@ -685,9 +687,34 @@ export const sessionsDb = {
     const db = getConnection();
     db.prepare(
       `UPDATE sessions
-       SET isArchived = ?
+       SET isArchived = ?, trashedAt = NULL
        WHERE session_id = ?`
     ).run(isArchived ? 1 : 0, sessionId);
+  },
+
+  /** Recycle bin: hides the row like an archive, stamped so the purge job can expire it. */
+  trashSessionById(sessionId: string): void {
+    const db = getConnection();
+    db.prepare('UPDATE sessions SET isArchived = 1, trashedAt = ? WHERE session_id = ?')
+      .run(new Date().toISOString(), sessionId);
+  },
+
+  /** Recycle bin rows, most recently binned first. */
+  getTrashedSessions(): SessionRow[] {
+    const db = getConnection();
+    const rows = db
+      .prepare(`SELECT ${SESSION_ROW_COLUMNS} FROM sessions WHERE trashedAt IS NOT NULL ORDER BY trashedAt DESC`)
+      .all() as SessionRow[];
+    return normalizeSessionRows(rows);
+  },
+
+  /** Ids of sessions binned before `cutoffIso`, for the purge job. */
+  getTrashedSessionIdsBefore(cutoffIso: string): string[] {
+    const db = getConnection();
+    const rows = db
+      .prepare('SELECT session_id FROM sessions WHERE trashedAt IS NOT NULL AND trashedAt < ?')
+      .all(cutoffIso) as Array<{ session_id: string }>;
+    return rows.map((row) => row.session_id);
   },
 
   deleteSessionById(sessionId: string): boolean {

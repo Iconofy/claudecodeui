@@ -425,6 +425,17 @@ const addSupersededTranscriptPathColumn = (db: Database): void => {
   addColumnToTableIfNotExists(db, 'superseded_provider_sessions', columnNames, 'jsonl_path', 'TEXT');
 };
 
+/**
+ * Recycle bin: `trashedAt` (ISO text) marks a session or project moved to the
+ * bin. NULL means it is not in the bin; an archived row keeps NULL too.
+ */
+const addTrashedAtColumns = (db: Database): void => {
+  for (const tableName of ['sessions', 'projects']) {
+    const columnNames = getTableInfo(db, tableName).map((column) => column.name);
+    addColumnToTableIfNotExists(db, tableName, columnNames, 'trashedAt', 'TEXT DEFAULT NULL');
+  }
+};
+
 const addForkedFromSessionIdColumn = (db: Database): void => {
   const columnNames = getTableInfo(db, 'sessions').map((column) => column.name);
   addColumnToTableIfNotExists(db, 'sessions', columnNames, 'forked_from_session_id', 'TEXT');
@@ -533,6 +544,7 @@ export const runMigrations = (db: Database) => {
     addSessionModelColumn(db);
     addSessionEffortColumn(db);
     addForkedFromSessionIdColumn(db);
+    addTrashedAtColumns(db);
     ensureProjectsForSessionPaths(db);
     db.exec(SCHEDULED_MESSAGES_TABLE_SCHEMA_SQL);
 

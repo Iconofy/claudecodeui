@@ -26,7 +26,7 @@ export const projectsDb = {
             VALUES (?, ?, ?, 0)
             ON CONFLICT(project_path) DO UPDATE SET
             isArchived = 0
-            WHERE projects.isArchived = 1
+            WHERE projects.isArchived = 1 AND projects.trashedAt IS NULL
             RETURNING project_id, project_path, custom_project_name, isStarred, isArchived
         `).get(attemptedId, normalizedProjectPath, normalizedProjectName) as ProjectRepositoryRow | undefined;
 
@@ -104,7 +104,7 @@ export const projectsDb = {
         return db.prepare(`
             SELECT project_id, project_path, custom_project_name, isStarred, isArchived
             FROM projects
-            WHERE isArchived = 1
+            WHERE isArchived = 1 AND trashedAt IS NULL
         `).all() as ProjectRepositoryRow[];
     },
 
@@ -163,7 +163,7 @@ export const projectsDb = {
         const normalizedProjectPath = normalizeProjectPath(projectPath);
         db.prepare(`
             UPDATE projects
-            SET isArchived = ?
+            SET isArchived = ?, trashedAt = NULL
             WHERE project_path = ?
         `).run(isArchived ? 1 : 0, normalizedProjectPath);
     },
@@ -172,9 +172,43 @@ export const projectsDb = {
         const db = getConnection();
         db.prepare(`
             UPDATE projects
-            SET isArchived = ?
+            SET isArchived = ?, trashedAt = NULL
             WHERE project_id = ?
         `).run(isArchived ? 1 : 0, projectId);
+    },
+
+    /** Recycle bin: hides the project like an archive, stamped so the purge job can expire it. */
+    trashProjectById(projectId: string): void {
+        const db = getConnection();
+        db.prepare('UPDATE projects SET isArchived = 1, trashedAt = ? WHERE project_id = ?')
+            .run(new Date().toISOString(), projectId);
+    },
+
+    /** Recycle bin projects, most recently binned first. */
+    getTrashedProjects(): Array<{ project_id: string; project_path: string; custom_project_name: string | null; trashedAt: string }> {
+        const db = getConnection();
+        return db.prepare(`
+            SELECT project_id, project_path, custom_project_name, trashedAt
+            FROM projects
+            WHERE trashedAt IS NOT NULL
+            ORDER BY trashedAt DESC
+        `).all() as Array<{ project_id: string; project_path: string; custom_project_name: string | null; trashedAt: string }>;
+    },
+
+    /** Ids of projects binned before `cutoffIso`, for the purge job. */
+    getTrashedProjectIdsBefore(cutoffIso: string): string[] {
+        const db = getConnection();
+        const rows = db.prepare('SELECT project_id FROM projects WHERE trashedAt IS NOT NULL AND trashedAt < ?')
+            .all(cutoffIso) as Array<{ project_id: string }>;
+        return rows.map((row) => row.project_id);
+    },
+
+    /** True when the project at this path is in the Recycle bin (its chats travel with it). */
+    isProjectPathTrashed(projectPath: string): boolean {
+        const db = getConnection();
+        const row = db.prepare('SELECT trashedAt FROM projects WHERE project_path = ?')
+            .get(normalizeProjectPath(projectPath)) as { trashedAt: string | null } | undefined;
+        return Boolean(row?.trashedAt);
     },
 
     deleteProjectPath(projectPath: string): void {

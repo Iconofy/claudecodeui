@@ -214,6 +214,7 @@ export default function SidebarRecentConversations({
                 sessionName={conversation.sessionTitle}
                 provider={conversation.provider}
                 projectId={conversation.projectId}
+                projectPath={conversation.projectPath}
                 isProcessing={isProcessing}
                 isEditing={sessionRename !== null}
                 renameDraft={sessionRename?.draft ?? ''}

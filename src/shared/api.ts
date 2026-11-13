@@ -239,6 +239,10 @@ export const api = {
   // `hardDelete` => server `?force=true` (remove DB row + Claude *.jsonl + sessions rows for path).
   deleteProject: (projectId: string, hardDelete = false) =>
     del(`/api/projects/${projectId}${query({ force: hardDelete })}`),
+  // Recycle bin: `deleteProject(id, true)` moves a project to the bin; this removes it for good.
+  deleteProjectPermanently: (projectId: string) =>
+    del(`/api/projects/${encodeURIComponent(projectId)}${query({ force: true, permanent: true })}`),
+  trashedProjects: () => get('/api/projects/trash'),
   createProject: (projectData: unknown) => post('/api/projects/create-project', projectData),
   migrateLegacyProjectStars: (projectIds: string[]) =>
     post('/api/projects/migrate-legacy-stars', { projectIds }),
@@ -272,6 +276,10 @@ export const api = {
   deleteSession: (sessionId: string, hardDelete = false) =>
     del(`/api/providers/sessions/${sessionId}${query({ force: hardDelete })}`),
   getArchivedSessions: () => get('/api/providers/sessions/archived'),
+  // Recycle bin: `deleteSession(id, true)` moves a session to the bin; this removes it for good.
+  deleteSessionPermanently: (sessionId: string) =>
+    del(`/api/providers/sessions/${encodeURIComponent(sessionId)}${query({ force: true, permanent: true })}`),
+  trashedSessions: () => get('/api/providers/sessions/trash'),
   // Resolves one session (by app id or provider-native id) to its metadata and
   // owning project — used when a /session/<id> URL isn't in loaded payloads.
   sessionDetails: (sessionId: string) =>

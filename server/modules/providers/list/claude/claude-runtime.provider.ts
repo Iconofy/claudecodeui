@@ -203,11 +203,13 @@ function toElicitationResult(decision: ToolApprovalDecision, mode: ElicitationRe
   return { action: 'accept', content: fields };
 }
 
-// Ultracode is a session-scoped setting rather than an SDK effort level: it pairs xhigh
-// effort with standing dynamic-workflow orchestration, and the CLI only honours it when
-// Workflows are enabled. The catalog offers it as an effort choice for the picker, so the
-// selection is translated back into the two options the SDK actually understands here.
+// Ultracode is a session-scoped setting rather than an SDK effort level, and the CLI only
+// honours it when Workflows are enabled. The composer sends it as `options.ultracode`; a
+// legacy or custom-model effort value "ultracode" still means xhigh effort plus the toggle.
 const ULTRACODE_SDK_EFFORT = 'xhigh';
+
+// Modes an approval may switch the running session to (never back into plan).
+const SWITCHABLE_PERMISSION_MODES = new Set(['default', 'auto', 'acceptEdits', 'bypassPermissions']);
 
 function resolveClaudeEffort(
   model: string,
@@ -223,8 +225,8 @@ function resolveClaudeEffort(
 }
 
 /**
- * Writes the resolved effort choice onto the SDK options, expanding `ultracode` into the
- * xhigh effort level plus the session-scoped settings it requires.
+ * Writes the resolved effort choice onto the SDK options. The effort value `ultracode`
+ * (custom models, older sessions) becomes xhigh effort plus the Ultracode settings.
  * @param {Object} sdkOptions - SDK options being built
  * @param {string|undefined} resolvedEffort - Catalog-validated effort selection
  */
@@ -239,11 +241,33 @@ function applyClaudeEffort(sdkOptions: AnyRecord, resolvedEffort: string | undef
   }
 
   sdkOptions.effort = ULTRACODE_SDK_EFFORT;
+  enableClaudeUltracode(sdkOptions);
+}
+
+function enableClaudeUltracode(sdkOptions: AnyRecord) {
   sdkOptions.settings = {
     ...(sdkOptions.settings || {}),
     ultracode: true,
     enableWorkflows: true
   };
+}
+
+/**
+ * Applies the composer's Ultracode toggle on top of whatever effort was chosen, but only
+ * for a model the catalog marks as supporting it.
+ */
+function applyClaudeUltracodeToggle(
+  sdkOptions: AnyRecord,
+  wanted: unknown,
+  modelsDefinition: ProviderModelsDefinition = CLAUDE_PREDEFINED_MODELS,
+) {
+  if (wanted !== true) {
+    return;
+  }
+  const selectedModel = modelsDefinition?.OPTIONS?.find((option) => option.value === sdkOptions.model);
+  if (selectedModel?.ultracode) {
+    enableClaudeUltracode(sdkOptions);
+  }
 }
 
 function createRequestId() {
@@ -423,6 +447,9 @@ function mapCliOptionsToSDK(options: AnyRecord = {}) {
   }
 
   sdkOptions.allowedTools = allowedTools;
+  // Lets the plan card's "Build & bypass mode" switch a running turn into bypassPermissions.
+  // It only makes the mode selectable; the mode itself still has to be chosen.
+  sdkOptions.allowDangerouslySkipPermissions = true;
 
   // Use the tools preset to make all default built-in tools available (including AskUserQuestion).
   // This was introduced in SDK 0.1.57. Omitting this preserves existing behavior (all tools available),
@@ -438,6 +465,7 @@ function mapCliOptionsToSDK(options: AnyRecord = {}) {
     effort,
     options.effortModels || CLAUDE_PREDEFINED_MODELS,
   ));
+  applyClaudeUltracodeToggle(sdkOptions, options.ultracode, options.effortModels || CLAUDE_PREDEFINED_MODELS);
 
   sdkOptions.systemPrompt = {
     type: 'preset',
@@ -1502,6 +1530,17 @@ async function queryClaudeSDK(
           if (Array.isArray(sdkOptions.disallowedTools)) {
             sdkOptions.disallowedTools = sdkOptions.disallowedTools.filter((entry: string) => entry !== decision.rememberEntry);
           }
+        }
+        const switchToMode = SWITCHABLE_PERMISSION_MODES.has(decision.permissionMode ?? '')
+          ? decision.permissionMode
+          : null;
+        if (switchToMode) {
+          sdkOptions.permissionMode = switchToMode;
+          return {
+            behavior: 'allow',
+            updatedInput: decision.updatedInput ?? input,
+            updatedPermissions: [{ type: 'setMode', mode: switchToMode, destination: 'session' }],
+          };
         }
         return { behavior: 'allow', updatedInput: decision.updatedInput ?? input };
       }

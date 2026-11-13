@@ -33,6 +33,7 @@ import { settingsRoutes } from './modules/settings/index.js';
 import { createSystemModule } from './modules/system/index.js';
 import { createAgentModule } from './modules/agent/index.js';
 import projectModuleRoutes from './modules/projects/projects.routes.js';
+import { closeTrashPurge, initializeTrashPurge } from './modules/projects/index.js';
 import notificationRoutes from './modules/notifications/notifications.routes.js';
 import { userRoutes } from './modules/user/index.js';
 import {
@@ -385,6 +386,8 @@ async function startServer() {
             // Sends anything that came due while the server was not running,
             // then keeps polling.
             initializeScheduledMessageDispatcher(providerRuntimeService);
+            // Removes Recycle bin items older than 30 days, now and hourly.
+            initializeTrashPurge();
 
             // Start server-side plugin processes for enabled plugins
             startEnabledPluginServers().catch(err => {
@@ -394,6 +397,7 @@ async function startServer() {
 
         await closeSessionsWatcher();
         closeScheduledMessageDispatcher();
+        closeTrashPurge();
         // Clean up plugin processes on shutdown
         const shutdownRuntimeServices = async () => {
             try {

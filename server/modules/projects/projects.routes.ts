@@ -7,7 +7,7 @@ import { startCloneProject } from '@/modules/projects/services/project-clone.ser
 import { getProjectTaskMaster } from '@/modules/projects/services/projects-has-taskmaster.service.js';
 import { AppError, asyncHandler, createApiSuccessResponse } from '@/shared/utils.js';
 import { getArchivedProjectsWithSessions, getProjectSessionsPage, getProjectsWithSessions } from '@/modules/projects/services/projects-with-sessions-fetch.service.js';
-import { deleteOrArchiveProject, restoreArchivedProject } from '@/modules/projects/services/project-delete.service.js';
+import { deleteOrArchiveProject, listTrashedProjects, restoreArchivedProject } from '@/modules/projects/services/project-delete.service.js';
 import { applyLegacyStarredProjectIds, toggleProjectStar } from '@/modules/projects/services/project-star.service.js';
 
 /**
@@ -80,6 +80,14 @@ router.get(
   asyncHandler(async (_req, res) => {
     const projects = await getArchivedProjectsWithSessions();
     res.json(createApiSuccessResponse({ projects }));
+  }),
+);
+
+// Recycle bin: projects deleted from the sidebar, kept for 30 days.
+router.get(
+  '/trash',
+  asyncHandler(async (_req, res) => {
+    res.json(createApiSuccessResponse({ projects: listTrashedProjects() }));
   }),
 );
 
@@ -193,14 +201,16 @@ router.post(
 
 /**
  * - `force` not set / false: archive project in DB only (`isArchived` = 1; hidden from active list).
- * - `force=true`: remove DB row, delete session rows for that path, remove all `*.jsonl` under the Claude project dir.
+ * - `force=true`: move the project to the Recycle bin (restorable for 30 days).
+ * - `force=true&permanent=true`: remove DB row, delete session rows for that path, remove all `*.jsonl` under the Claude project dir.
  */
 router.delete(
   '/:projectId',
   asyncHandler(async (req, res) => {
     const projectId = typeof req.params.projectId === 'string' ? req.params.projectId : '';
     const force = req.query.force === 'true';
-    await deleteOrArchiveProject(projectId, force);
+    const permanent = req.query.permanent === 'true';
+    await deleteOrArchiveProject(projectId, force, { trash: !permanent });
     res.json({ success: true });
   }),
 );

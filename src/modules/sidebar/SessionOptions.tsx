@@ -1,9 +1,9 @@
 import { useEffect, useRef } from 'react';
-import { Archive, Check, Edit2, GitBranch, MoreHorizontal, Trash2, X } from 'lucide-react';
+import { Archive, Check, Copy, Edit2, GitBranch, MoreHorizontal, Trash2, X } from 'lucide-react';
 import type { TFunction } from 'i18next';
 
 import { ActionMenu } from '@/shared/ui';
-import { cn } from '@/shared/utils';
+import { cn, copyTextToClipboard } from '@/shared/utils';
 import type { LLMProvider } from '@/shared/types';
 import { useSessionForkingProviders } from '@/shared/hooks/useProviderCapabilities';
 import { useProviderSessionIdCopy } from '@/modules/sidebar/hooks/useProviderSessionIdCopy';
@@ -18,6 +18,8 @@ type SessionOptionsProps = {
    * which case rename is withheld rather than guessed — it is keyed by project.
    */
   projectId: string | null;
+  /** The owning project's folder, offered as "Copy project path" when known. */
+  projectPath?: string | null;
   /** A running session cannot be archived, deleted or forked, matching the Projects row. */
   isProcessing: boolean;
   isEditing: boolean;
@@ -51,6 +53,7 @@ export default function SessionOptions({
   sessionName,
   provider,
   projectId,
+  projectPath,
   isProcessing,
   isEditing,
   renameDraft,
@@ -168,6 +171,12 @@ export default function SessionOptions({
               label: 'Rename session',
               icon: Edit2,
               onSelect: () => onStartEditingSession(projectId, sessionId, sessionName),
+            }] : []),
+            ...(projectPath ? [{
+              key: 'copypath',
+              label: 'Copy project path',
+              icon: Copy,
+              onSelect: () => { void copyTextToClipboard(projectPath); },
             }] : []),
             {
               key: 'copy',

@@ -926,6 +926,14 @@ router.get(
 );
 
 router.get(
+  '/sessions/trash',
+  asyncHandler(async (_req: Request, res: Response) => {
+    const sessions = sessionsService.listTrashedSessions();
+    res.json(createApiSuccessResponse({ sessions }));
+  }),
+);
+
+router.get(
   '/sessions/archived',
   asyncHandler(async (_req: Request, res: Response) => {
     const sessions = sessionsService.listArchivedSessions();
@@ -988,9 +996,12 @@ router.delete(
     const sessionId = parseSessionId(req.params.sessionId);
     const force = parseOptionalBooleanQuery(req.query.force, 'force') ?? false;
     const deletedFromDisk = parseOptionalBooleanQuery(req.query.deletedFromDisk, 'deletedFromDisk') ?? force;
+    // force alone moves the session to the Recycle bin; permanent=true deletes it.
+    const permanent = parseOptionalBooleanQuery(req.query.permanent, 'permanent') ?? false;
     const result = await sessionsService.deleteOrArchiveSessionById(sessionId, {
       force,
       deletedFromDisk,
+      trash: !permanent,
     });
     res.json(createApiSuccessResponse(result));
   }),

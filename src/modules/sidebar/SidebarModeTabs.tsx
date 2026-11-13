@@ -1,5 +1,5 @@
 import { Fragment } from 'react';
-import { Activity, Archive, Folder, MessageSquare, MoreHorizontal } from 'lucide-react';
+import { Activity, Archive, Folder, MessageSquare, MoreHorizontal, Trash2 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import type { TFunction } from 'i18next';
 
@@ -39,9 +39,10 @@ export default function SidebarModeTabs({
 }: SidebarModeTabsProps) {
   const tabs: ModeTab[] = [
     { mode: 'projects', label: t('search.modeProjects'), icon: Folder, showLabel: true },
-    { mode: 'conversations', label: t('search.modeConversations'), icon: MessageSquare, showLabel: true },
+    { mode: 'conversations', label: 'Chats', icon: MessageSquare, showLabel: true },
     { mode: 'running', label: t('search.runningTooltip', 'Running sessions'), icon: Activity, showLabel: false },
     { mode: 'archived', label: t('search.archiveOnlyTooltip', 'Archive only'), icon: Archive, showLabel: false },
+    { mode: 'trash', label: 'Recycle bin', icon: Trash2, showLabel: false },
   ];
 
   const activeIndex = tabs.findIndex((tab) => tab.mode === searchMode);
@@ -62,7 +63,7 @@ export default function SidebarModeTabs({
         title={tab.showLabel ? undefined : tab.label}
         className={cn(
           'flex min-w-0 items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-normal transition-all',
-          tab.mode === 'archived' && 'px-2.5',
+          (tab.mode === 'archived' || tab.mode === 'trash') && 'px-2.5',
           canGrow && tab.showLabel && 'flex-1',
           isActive
             ? 'bg-background text-foreground shadow-sm'

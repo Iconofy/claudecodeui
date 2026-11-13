@@ -3,13 +3,7 @@ import path from 'node:path';
 import { readFile } from 'node:fs/promises';
 
 import { sessionsDb } from '@/modules/database/index.js';
-import {
-  buildLookupMap,
-  extractFirstValidJsonlData,
-  findFilesRecursivelyCreatedAfter,
-  normalizeSessionName,
-  readFileTimestamps,
-} from '@/shared/utils.js';
+import { buildLookupMap, extractFirstValidJsonlData, findFilesRecursivelyCreatedAfter, isSlashCommandMessage, normalizeSessionName, readFileTimestamps } from '@/shared/utils.js';
 import type { IProviderSessionSynchronizer } from '@/shared/interfaces.js';
 
 type ParsedSession = {
@@ -213,7 +207,7 @@ export class ClaudeSessionSynchronizer implements IProviderSessionSynchronizer {
           }
         } else if (eventType === 'last-prompt') {
           const prompt = typeof data.lastPrompt === 'string' ? data.lastPrompt : undefined;
-          if (prompt?.trim()) {
+          if (prompt?.trim() && !isSlashCommandMessage(prompt)) {
             foundLastPrompt = prompt;
           }
         }

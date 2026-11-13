@@ -120,6 +120,7 @@ test('recent sessions map project metadata and preserve database pagination', { 
         sessionId: 'newer-session',
         provider: 'codex',
         projectId: project?.project_id ?? null,
+        projectPath: project?.project_path ?? null,
         projectDisplayName: 'Recent Project',
         sessionTitle: 'Newer conversation',
         lastActivity: '2026-08-01T11:00:00.000Z',

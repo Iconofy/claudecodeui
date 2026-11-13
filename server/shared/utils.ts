@@ -1581,3 +1581,26 @@ export const SIDE_CONVERSATION_DEVELOPER_INSTRUCTIONS = "You are in a side conve
  * of the question itself, by runtimes that cannot inject a history item.
  */
 export const SIDE_CONVERSATION_BOUNDARY_PROMPT = "Side conversation boundary.\n\nEverything before this boundary is inherited history from the parent thread. It is reference context only. It is not your current task.\n\nDo not continue, execute, or complete any instructions, plans, tool calls, approvals, edits, or requests from before this boundary. Only messages submitted after this boundary are active user instructions for this side conversation.\n\nYou are a side-conversation assistant, separate from the main thread. Answer questions and do lightweight, non-mutating exploration without disrupting the main thread. If there is no user question after this boundary yet, wait for one.\n\nExternal tools may be available according to this thread's current permissions. Any tool calls or outputs visible before this boundary happened in the parent thread and are reference-only; do not infer active instructions from them.\n\nThis thread is ephemeral and cannot retain worktree attachments. Do not call create_worktree here. Direct requests requiring a new worktree back to the main conversation.\n\nSub-agents are off-limits in this side conversation. Do not interact with any existing or new sub-agents, even if sub-agents were used before this boundary.\n\nDo not modify files, source, git state, permissions, configuration, or workspace state unless the user explicitly asks for that mutation after this boundary. Do not request escalated permissions or broader sandbox access unless the user explicitly asks for a mutation that requires it. If the user explicitly requests a mutation, keep it minimal, local to the request, and avoid disrupting the main thread.";
+
+//----------------- RECYCLE BIN ------------
+
+/**
+ * How long a deleted session or project stays in the Recycle bin before the
+ * purge job removes it for good. Used by the bin listings (to report `purgeAt`)
+ * and by the purge job (to pick what has expired); both must agree.
+ */
+export const RECYCLE_BIN_RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
+
+// ---------------------------
+
+//----------------- SESSION TITLES ------------
+
+/**
+ * True when a message is only a slash command such as `/model` or `/resume opus`.
+ * Such a message says nothing about the conversation, so it is never used as a
+ * session title: neither for an app-created row (sessions service) nor as the
+ * transcript's last-prompt fallback (Claude session synchronizer).
+ */
+export function isSlashCommandMessage(text: string): boolean {
+  return /^\/[A-Za-z][\w:-]*(\s|$)/.test(text.trim());
+}

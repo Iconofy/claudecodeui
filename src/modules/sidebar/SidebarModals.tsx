@@ -140,8 +140,11 @@ export default function SidebarModals({
                   onClick={() => onConfirmDeleteProject(true)}
                 >
                   <Trash2 className="mr-2 h-4 w-4" />
-                  {t('deleteConfirmation.deleteAllData')}
+                  Move to Recycle bin
                 </Button>
+                <p className="px-1 text-[11px] text-muted-foreground">
+                  Kept in the Recycle bin for 30 days, then removed for good. You can restore it any time before that.
+                </p>
                 <Button variant="ghost" className="w-full" onClick={onCancelDeletion}>
                   {t('actions.cancel')}
                 </Button>
@@ -165,14 +168,11 @@ export default function SidebarModals({
                       {t('deleteConfirmation.deleteSession')}
                     </h3>
                     <p className="mb-1 text-sm text-muted-foreground">
-                      {t('deleteConfirmation.confirmDeleteSession', 'Permanently delete')}{' '}
+                      Move{' '}
                       <span className="font-medium text-foreground">
                         {pendingDeletion.sessionTitle || t('sessions.unnamed')}
                       </span>
-                      ?
-                    </p>
-                    <p className="mt-3 text-xs text-muted-foreground">
-                      {t('deleteConfirmation.deleteSessionNotice', 'The session and its history will be removed. This cannot be undone.')}
+                      {' '}to the Recycle bin?
                     </p>
                   </div>
                 </div>
@@ -184,8 +184,11 @@ export default function SidebarModals({
                   onClick={onConfirmDeleteSession}
                 >
                   <Trash2 className="mr-2 h-4 w-4" />
-                  {t('deleteConfirmation.deleteSessionPermanently', 'Delete permanently')}
+                  Move to Recycle bin
                 </Button>
+                <p className="px-1 text-[11px] text-muted-foreground">
+                  Kept in the Recycle bin for 30 days, then removed for good. You can restore it any time before that.
+                </p>
                 <Button variant="ghost" className="w-full" onClick={onCancelDeletion}>
                   {t('actions.cancel')}
                 </Button>
@@ -236,8 +239,11 @@ export default function SidebarModals({
                   onClick={() => onConfirmDeleteSessions(true)}
                 >
                   <Trash2 className="mr-2 h-4 w-4" />
-                  {t('deleteConfirmation.deleteSessionPermanently', 'Delete permanently')}
+                  Move to Recycle bin
                 </Button>
+                <p className="px-1 text-[11px] text-muted-foreground">
+                  Kept in the Recycle bin for 30 days, then removed for good. You can restore it any time before that.
+                </p>
                 <Button variant="ghost" className="w-full" onClick={onCancelDeletion}>
                   {t('actions.cancel')}
                 </Button>

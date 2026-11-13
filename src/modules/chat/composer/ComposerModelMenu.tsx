@@ -6,6 +6,7 @@ import { ChevronDown, ChevronRight } from 'lucide-react';
 import type { ProviderModelOption } from '@/shared/types';
 import { DEFAULT_EFFORT_VALUE } from '@/shared/constants';
 import { useComposerMenuAnchor } from '@/modules/chat/hooks/useComposerMenuAnchor';
+import { useUltracodeToggle } from '@/modules/chat/hooks/useUltracodeToggle';
 import {
   ComposerMenuHeading,
   ComposerMenuItem,
@@ -66,6 +67,8 @@ function ComposerModelMenu({
     [model, modelOptions],
   );
   const modelLabel = selectedModelOption?.label || model;
+  const [isUltracodeOn, setUltracodeOn] = useUltracodeToggle();
+  const offersUltracode = Boolean(selectedModelOption?.ultracode);
 
   const hasEffortSection = resolvedEffortOptions.length > 0;
   const hasModelSection = modelOptions.length > 0 || modelsLoading;
@@ -97,6 +100,9 @@ function ComposerModelMenu({
         {hasModelSection && hasEffortSection && effort !== DEFAULT_EFFORT_VALUE && (
           <span className="hidden shrink-0 capitalize text-muted-foreground sm:inline">· {effortLabel}</span>
         )}
+        {hasModelSection && offersUltracode && isUltracodeOn && (
+          <span className="hidden shrink-0 text-muted-foreground sm:inline">· Ultracode</span>
+        )}
       </button>
 
       {isOpen && anchor && createPortal(
@@ -119,6 +125,15 @@ function ComposerModelMenu({
                   className="capitalize"
                 />
               ))}
+              {offersUltracode && (
+                // Stays open on click: it is a switch, not a choice that ends the menu.
+                <ComposerMenuItem
+                  label="Ultracode"
+                  description="Workflow orchestration at any effort level"
+                  isSelected={isUltracodeOn}
+                  onSelect={() => setUltracodeOn(!isUltracodeOn)}
+                />
+              )}
             </>
           )}
 

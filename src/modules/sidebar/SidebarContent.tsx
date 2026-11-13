@@ -8,6 +8,7 @@ import { formatCompactAge, getAllSessions } from '@/modules/sidebar/utils/sideba
 import SidebarFooter from '@/modules/sidebar/SidebarFooter';
 import SidebarHeader from '@/modules/sidebar/SidebarHeader';
 import SidebarProjectList from '@/modules/sidebar/SidebarProjectList';
+import SidebarRecycleBin from '@/modules/sidebar/SidebarRecycleBin';
 import SidebarRecentConversations from '@/modules/sidebar/SidebarRecentConversations';
 
 function HighlightedSnippet({ snippet, highlights }: { snippet: string; highlights: { start: number; end: number }[] }) {
@@ -424,6 +425,8 @@ export default function SidebarContent({
               <SidebarProjectList {...projectListProps} />
             </div>
           )
+        ) : searchMode === 'trash' ? (
+          <SidebarRecycleBin filter={searchFilter} onChanged={onRefresh} />
         ) : searchMode === 'archived' ? (
           isArchivedSessionsLoading ? (
             <div className="space-y-2 px-2 py-1" aria-live="polite" aria-busy="true">
@@ -667,8 +670,8 @@ export default function SidebarContent({
                           <button
                             className="flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground/60 transition-colors hover:bg-destructive/10 hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-destructive/40"
                             onClick={() => onDeleteArchivedSession(session)}
-                            title={t('archived.deletePermanently', 'Delete permanently')}
-                            aria-label={`${t('archived.deletePermanently', 'Delete permanently')}: ${session.sessionTitle}`}
+                            title={'Move to Recycle bin'}
+                            aria-label={`${'Move to Recycle bin'}: ${session.sessionTitle}`}
                           >
                             <Trash2 className="h-3.5 w-3.5" />
                           </button>
@@ -681,7 +684,20 @@ export default function SidebarContent({
             </div>
           )
         ) : (
-          <SidebarProjectList {...projectListProps} />
+          <>
+            {/* The Projects box only filters project names; offer the chat search with the same text. */}
+            {searchMode === 'projects' && searchFilter.trim().length >= 2 && (
+              <button
+                type="button"
+                className="mx-2 mb-1 mt-1 flex w-[calc(100%-1rem)] items-center gap-2 rounded-md border border-border/60 bg-muted/40 px-2.5 py-2 text-left text-xs text-foreground transition-colors hover:bg-accent/60"
+                onClick={() => onSearchModeChange('conversations')}
+              >
+                <MessageSquare className="h-3.5 w-3.5 flex-shrink-0 text-primary" />
+                <span className="min-w-0 truncate">Search chats for &ldquo;{searchFilter.trim()}&rdquo;</span>
+              </button>
+            )}
+            <SidebarProjectList {...projectListProps} />
+          </>
         )}
       </ScrollArea>
 

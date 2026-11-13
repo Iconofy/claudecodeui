@@ -882,7 +882,9 @@ export function useChatSessionState({
     const scrollToTarget = async () => {
       if (!allMessagesLoadedRef.current && selectedSession && selectedProject) {
           try {
-            // Load all messages into the store for search navigation
+            // Load all messages into the store for search navigation; the pill says
+            // that work is going on between the first page and the jump.
+            setIsLoadingAllMessages(true);
             const slot = await sessionStore.fetchFromServer(selectedSession.id, {
               limit: null,
               offset: 0,
@@ -906,6 +908,8 @@ export function useChatSessionState({
             }
           } catch {
             // Fall through and scroll in current messages
+          } finally {
+            setIsLoadingAllMessages(false);
           }
       }
       // Resolve the target against the loaded transcript rather than the DOM.
