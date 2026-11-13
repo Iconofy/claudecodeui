@@ -5,9 +5,9 @@ commands on your computer, such as Claude Code (`claude` in a terminal). It inst
 starts it, and can add extra Claude accounts. It asks you before anything that needs your input.
 
 ````text
-Please install and start "claudecodeui-fork" on this computer for me. It is a modified
+Please install and start this fork of CloudCLI UI on this computer for me. It is a modified
 version of CloudCLI UI (a web UI for Claude Code), from this GitHub repository:
-https://github.com/Iconofy/claudecodeui-fork
+https://github.com/Iconofy/claudecodeui
 
 Work step by step, show me each command before you run it, and stop to ask me whenever
 something needs my decision or my login. Never type a password or token for me unless I
@@ -21,9 +21,8 @@ paste it to you for that step. Do not install anything system-wide without askin
      https://docs.claude.com/en/docs/claude-code/setup describes for my system. If it is not
      logged in, ask me to run `claude` in a terminal and type /login, then wait for me.
 
-2. Get the code. The repository may be private: if `git clone` asks for access, tell me to
-   ask its owner to add my GitHub account, and help me sign in to git (for example with
-   `gh auth login`). Clone it into a folder of my choice (suggest ~/claudecodeui-fork).
+2. Get the code: `git clone https://github.com/Iconofy/claudecodeui.git` into a folder of
+   my choice (suggest ~/claudecodeui-fork). It is a public repository; no GitHub login is needed.
 
 3. In that folder, run:
        npm ci
