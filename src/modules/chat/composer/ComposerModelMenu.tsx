@@ -48,15 +48,15 @@ function ComposerModelMenu({
 }: ComposerModelMenuProps) {
   const { t } = useTranslation('chat');
   const [isOpen, setIsOpen] = useState(false);
-  const [isModelSectionOpen, setIsModelSectionOpen] = useState(false);
+  const [isReasoningOpen, setIsReasoningOpen] = useState(false);
   const close = useCallback(() => setIsOpen(false), []);
   const { triggerRef, menuRef, anchor, updateAnchor } = useComposerMenuAnchor(isOpen, close);
 
-  // The model list starts collapsed every time the menu opens, the way Codex
-  // shows reasoning first and keeps the longer model list one click away.
+  // The model list is what people change most, so it is open right away; the
+  // reasoning levels start collapsed every time the menu opens.
   useEffect(() => {
     if (!isOpen) {
-      setIsModelSectionOpen(false);
+      setIsReasoningOpen(false);
     }
   }, [isOpen]);
 
@@ -127,39 +127,52 @@ function ComposerModelMenu({
 
       {isOpen && anchor && createPortal(
         <ComposerMenuSurface anchor={anchor} menuRef={menuRef} ariaLabel={ariaLabel}>
-          {hasEffortSection && (
+          {hasModelSection && (
             <>
               <ComposerMenuHeading>
-                {t('composer.reasoning', { defaultValue: 'Reasoning' })}
+                {t('composer.model', { defaultValue: 'Model' })}
               </ComposerMenuHeading>
-              {resolvedEffortOptions.map((option) => (
-                <ComposerMenuItem
-                  key={option.value}
-                  label={option.value === DEFAULT_EFFORT_VALUE ? defaultEffortLabel : option.value}
-                  description={option.description}
-                  isSelected={option.value === effort}
-                  onSelect={() => {
-                    onSelectEffort(option.value);
-                    setIsOpen(false);
-                  }}
-                  className="capitalize"
-                />
-              ))}
-              {offersUltracode && (
-                // Stays open on click: it is a switch, not a choice that ends the menu.
-                <ComposerMenuItem
-                  label="Ultracode"
-                  description="Workflow orchestration at any effort level"
-                  isSelected={isUltracodeOn}
-                  onSelect={() => setUltracodeOn(!isUltracodeOn)}
-                />
+              {plainModelOptions.length === 0 && modelsLoading && (
+                <p className="px-2.5 py-1.5 text-sm text-muted-foreground">
+                  {t('composer.loadingModels', { defaultValue: 'Loading models…' })}
+                </p>
               )}
+              {orderedModelOptions.map((option) => (
+                <div
+                  key={option.value}
+                  {...{ [MODEL_ROW_ATTRIBUTE]: option.value }}
+                  className={`flex items-center${draggingValue === option.value ? ' opacity-60' : ''}`}
+                >
+                  <div className="min-w-0 flex-1">
+                    <ComposerMenuItem
+                      label={option.label || option.value}
+                      isSelected={option.value === plainModel}
+                      onSelect={() => {
+                        onSelectModel(joinAccountModel(accountId, option.value));
+                        setIsOpen(false);
+                      }}
+                    />
+                  </div>
+                  {onReorderModels && (
+                    // On the right: on a phone the menu can reach past the left screen edge.
+                    <span
+                      role="button"
+                      aria-label={`Drag ${option.label || option.value} to reorder`}
+                      title="Drag to reorder"
+                      className="flex h-7 w-7 shrink-0 cursor-grab touch-none select-none items-center justify-center text-muted-foreground"
+                      {...gripProps(option.value)}
+                    >
+                      <GripVertical className="h-3.5 w-3.5" />
+                    </span>
+                  )}
+                </div>
+              ))}
             </>
           )}
 
           {accounts.length > 0 && (
             <>
-              {hasEffortSection && <ComposerMenuSeparator />}
+              {hasModelSection && <ComposerMenuSeparator />}
               <ComposerMenuHeading>Account</ComposerMenuHeading>
               {[{ id: '', label: 'Default login' }, ...accounts].map((account) => (
                 <ComposerMenuItem
@@ -175,62 +188,52 @@ function ComposerModelMenu({
             </>
           )}
 
-          {hasModelSection && (
+          {hasEffortSection && (
             <>
-              {(hasEffortSection || accounts.length > 0) && <ComposerMenuSeparator />}
-              <ComposerMenuItem
-                role="menuitem"
-                label={modelLabel}
-                isSelected={false}
-                onSelect={() => setIsModelSectionOpen((current) => !current)}
-                trailing={
-                  isModelSectionOpen
-                    ? <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
-                    : <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
-                }
-                className="text-muted-foreground"
-              />
+              {(hasModelSection || accounts.length > 0) && <ComposerMenuSeparator />}
+              {hasModelSection ? (
+                <ComposerMenuItem
+                  role="menuitem"
+                  label={`${t('composer.reasoning', { defaultValue: 'Reasoning' })}: ${effortLabel}${offersUltracode && isUltracodeOn ? ' · Ultracode' : ''}`}
+                  isSelected={false}
+                  onSelect={() => setIsReasoningOpen((current) => !current)}
+                  trailing={
+                    isReasoningOpen
+                      ? <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+                      : <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
+                  }
+                  className="capitalize text-muted-foreground"
+                />
+              ) : (
+                <ComposerMenuHeading>
+                  {t('composer.reasoning', { defaultValue: 'Reasoning' })}
+                </ComposerMenuHeading>
+              )}
 
-              {isModelSectionOpen && (
+              {(isReasoningOpen || !hasModelSection) && (
                 <>
-                  <ComposerMenuHeading>
-                    {t('composer.model', { defaultValue: 'Model' })}
-                  </ComposerMenuHeading>
-                  {plainModelOptions.length === 0 && modelsLoading && (
-                    <p className="px-2.5 py-1.5 text-sm text-muted-foreground">
-                      {t('composer.loadingModels', { defaultValue: 'Loading models…' })}
-                    </p>
-                  )}
-                  {orderedModelOptions.map((option) => (
-                    <div
+                  {resolvedEffortOptions.map((option) => (
+                    <ComposerMenuItem
                       key={option.value}
-                      {...{ [MODEL_ROW_ATTRIBUTE]: option.value }}
-                      className={`flex items-center${draggingValue === option.value ? ' opacity-60' : ''}`}
-                    >
-                      <div className="min-w-0 flex-1">
-                        <ComposerMenuItem
-                          label={option.label || option.value}
-                          isSelected={option.value === plainModel}
-                          onSelect={() => {
-                            onSelectModel(joinAccountModel(accountId, option.value));
-                            setIsOpen(false);
-                          }}
-                        />
-                      </div>
-                      {onReorderModels && (
-                        // On the right: on a phone the menu can reach past the left screen edge.
-                        <span
-                          role="button"
-                          aria-label={`Drag ${option.label || option.value} to reorder`}
-                          title="Drag to reorder"
-                          className="flex h-7 w-7 shrink-0 cursor-grab touch-none select-none items-center justify-center text-muted-foreground"
-                          {...gripProps(option.value)}
-                        >
-                          <GripVertical className="h-3.5 w-3.5" />
-                        </span>
-                      )}
-                    </div>
+                      label={option.value === DEFAULT_EFFORT_VALUE ? defaultEffortLabel : option.value}
+                      description={option.description}
+                      isSelected={option.value === effort}
+                      onSelect={() => {
+                        onSelectEffort(option.value);
+                        setIsOpen(false);
+                      }}
+                      className="capitalize"
+                    />
                   ))}
+                  {offersUltracode && (
+                    // Stays open on click: it is a switch, not a choice that ends the menu.
+                    <ComposerMenuItem
+                      label="Ultracode"
+                      description="Workflow orchestration at any effort level"
+                      isSelected={isUltracodeOn}
+                      onSelect={() => setUltracodeOn(!isUltracodeOn)}
+                    />
+                  )}
                 </>
               )}
             </>

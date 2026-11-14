@@ -53,6 +53,8 @@ Please report problems with the changes below to this fork, not to the upstream 
   the CLI process started.
 
 ### Models
+- **Models first in the model menu.** The menu opens with the model list; the reasoning levels
+  (and the Ultracode toggle) sit behind a "Reasoning: <level>" row with an arrow.
 - **Drag to reorder the model list.** In the composer's model menu, drag a model by the grip
   on the right of its row (mouse or touch). The order is saved on the server, so every device
   and every model picker (new-chat dialog, `/models`) uses it. Models added later go to the end.
