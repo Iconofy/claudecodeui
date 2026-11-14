@@ -12,6 +12,20 @@ export function escapeRegExp(value: string) {
 }
 
 /**
+ * Removes the `/command` token that ends at `cursor` (the text that opened the
+ * slash menu) and keeps the rest of the draft. Without such a token the text is
+ * returned unchanged. `cursor` is where the caret should go afterwards.
+ */
+export function stripSlashCommandToken(text: string, cursor: number = text.length) {
+  const match = text.slice(0, cursor).match(/(^|\s)\/\S*$/);
+  if (!match || match.index === undefined) {
+    return { text, cursor };
+  }
+  const start = match.index + match[1].length;
+  return { text: text.slice(0, start) + text.slice(cursor).replace(/^ /, ''), cursor: start };
+}
+
+/**
  * Removes Codex's outer plan transport envelope while preserving its Markdown.
  * The closing tag is optional because streamed plans expose the opening tag
  * before the complete response arrives.

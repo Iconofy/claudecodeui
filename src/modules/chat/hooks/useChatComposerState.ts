@@ -28,7 +28,7 @@ import {
   subscribeToChatDrafts,
   writeDraftText,
 } from '@/shared/chatDrafts';
-import { escapeRegExp } from '@/modules/chat/utils/chatFormatting';
+import { escapeRegExp, stripSlashCommandToken } from '@/modules/chat/utils/chatFormatting';
 import { describeBackgroundTask, ownBackgroundTasks } from '@/modules/chat/utils/backgroundTasks';
 import { useFileMentions } from '@/modules/chat/hooks/useFileMentions';
 import { useInputHistory } from '@/modules/chat/hooks/useInputHistory';
@@ -569,8 +569,20 @@ export function useChatComposerState({
         if (result.type === 'builtin') {
           handleBuiltInCommand(result);
           if (!options?.preserveInput) {
-            setInput('');
-            inputValueRef.current = '';
+            // Picked from the slash menu (no rawInput): drop only the typed
+            // "/command" and keep the rest of the draft.
+            const textarea = textareaRef.current;
+            const next = rawInput === undefined
+              ? stripSlashCommandToken(effectiveInput, textarea?.selectionStart ?? effectiveInput.length)
+              : { text: '', cursor: 0 };
+            setInput(next.text);
+            inputValueRef.current = next.text;
+            if (next.text) {
+              window.requestAnimationFrame(() => {
+                textarea?.focus();
+                textarea?.setSelectionRange(next.cursor, next.cursor);
+              });
+            }
           }
         } else if (result.type === 'custom') {
           await handleCustomCommand(result);

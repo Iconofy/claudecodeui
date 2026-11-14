@@ -47,6 +47,9 @@ Please report problems with the changes below to this fork, not to the upstream 
   `~/.claude/.credentials.json` (or `$CLAUDE_CONFIG_DIR`), only reads it, and never refreshes
   or rewrites the login. It uses the same **unofficial** endpoint as the Claude CLI's own
   `/usage`, so it can stop working at any time.
+- **Slash commands keep your draft.** Picking a built-in command (such as `/usage` or `/cost`)
+  from the slash menu while you are writing a message removes only the `/command` you typed;
+  the rest of the draft stays. Typing a command alone and pressing Enter still clears the box.
 - **Session titles**: a first or last message that is only a slash command (such as `/model`)
   is not used as the session name.
 - **Running timer** counts the current turn of a terminal Claude session, not the time since
