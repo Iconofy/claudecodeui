@@ -18,6 +18,7 @@ import { readUserPreference } from '@/shared/userSettings';
 import type { BackgroundSendChoice, BackgroundSendPrompt, CommandModalPayload, CostCommandData, HelpCommandData, MarkSessionProcessing, ModelCommandData, PendingSteer, QueuedDraft, SessionActivityMap, StatusCommandData, SteerOutcome,QueuedSendOptions,ChatAttachment,ChatMessage,PendingPermissionRequest,PermissionMode,SessionEstablishedContext,Project,ProjectSession,LLMProvider,SlashCommand } from '@/shared/types';
 import { grantClaudeToolPermission } from '@/modules/chat/utils/chatPermissions';
 import { readUltracodeToggle } from '@/modules/chat/hooks/useUltracodeToggle';
+import { claudeMdBlocksSend, setClaudeMdScope } from '@/modules/chat/composer/ClaudeMdControls';
 import {
   appendQueuedMessage,
   clearQueuedMessage,
@@ -1139,6 +1140,10 @@ export function useChatComposerState({
       ) {
         return;
       }
+      // Puts the chat's own CLAUDE.md back first; refuses only when that variant is gone.
+      if (provider === 'claude' && await claudeMdBlocksSend(sessionKey)) {
+        return;
+      }
 
       // `/btw <question>` never becomes a turn: checked before the in-flight
       // queue below, since that branch runs before slash-command
@@ -1454,6 +1459,10 @@ export function useChatComposerState({
   // again — and each extra submit of a new chat allocated its own session and
   // sent it the same first message.
   const submittingScopesRef = useRef(new Set<string>());
+
+  useEffect(() => {
+    setClaudeMdScope(sessionKey, provider === 'claude');
+  }, [provider, sessionKey]);
 
   const handleSubmit = useCallback(
     async (

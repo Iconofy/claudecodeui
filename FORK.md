@@ -9,7 +9,7 @@ License: AGPL-3.0-or-later, the same as upstream, including the additional terms
 
 Please report problems with the changes below to this fork, not to the upstream project.
 
-## What is changed (2026-11-14)
+## What is changed (2026-11-15)
 
 ### Sidebar
 - **Project menu (⋮).** On desktop, the separate rename and delete buttons on a project row
@@ -56,6 +56,27 @@ Please report problems with the changes below to this fork, not to the upstream 
 - Add any number of Claude accounts in `~/.cloudcli/claude-accounts.json` and pick the
   account per chat in the model menu ("Account" section). A chat keeps its account when you
   come back to it. See [Adding Claude accounts](#adding-claude-accounts).
+
+### CLAUDE.md variants (optional)
+- Keep several versions of your global `CLAUDE.md` as `CLAUDE_<name>.md` files in a
+  `claude-md` folder inside your Claude config folder (`~/.claude/claude-md/`, or
+  `$CLAUDE_CONFIG_DIR/claude-md/`). Without that folder nothing changes.
+- **Switcher in the composer** (next to the model button; "MD" on phones): lists the variants
+  and copies the one you pick over `~/.claude/CLAUDE.md`. The chat remembers its choice.
+- **Each chat keeps its own CLAUDE.md.** A Claude chat records the variant it first runs with.
+  When another chat switched `CLAUDE.md`, this chat copies its own variant back before it
+  sends, when it is opened, and when the window gets focus. If its variant was deleted, a
+  banner above the input asks you to **Use current** or switch the file yourself
+  (**Refresh** checks again); sending waits until then.
+- Edit a variant in `claude-md/`, not `CLAUDE.md` itself: a direct edit is replaced by the
+  next switch-back (the edited file is kept in `claude-md/unsaved/` first).
+- `CLAUDE.md` is one file for all chats: a running turn of another chat may read it after
+  this chat switched it (for example after a compaction).
+- Only the default Claude config folder is covered, not the `configDir` of an extra account.
+- API: `GET /api/providers/claude/md-variants`, `POST /api/providers/claude/md-swap`
+  `{ name, sessionId? }`, `GET /api/providers/sessions/:id/claude-md`,
+  `POST /api/providers/sessions/:id/claude-md/confirm`. Database: new nullable `claude_md`
+  column on `sessions` (variant file name, or `sha1:<hash>`).
 
 ### Look
 - Fonts: Ubuntu for the UI and chat, Fira Code for code and the terminal (Google Fonts).

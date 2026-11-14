@@ -436,6 +436,15 @@ const addTrashedAtColumns = (db: Database): void => {
   }
 };
 
+/**
+ * CLAUDE.md variants: `claude_md` is the variant a session uses (file name, or
+ * `sha1:<hash>`). NULL means the session has not recorded one yet.
+ */
+const addClaudeMdColumn = (db: Database): void => {
+  const columnNames = getTableInfo(db, 'sessions').map((column) => column.name);
+  addColumnToTableIfNotExists(db, 'sessions', columnNames, 'claude_md', 'TEXT');
+};
+
 const addForkedFromSessionIdColumn = (db: Database): void => {
   const columnNames = getTableInfo(db, 'sessions').map((column) => column.name);
   addColumnToTableIfNotExists(db, 'sessions', columnNames, 'forked_from_session_id', 'TEXT');
@@ -545,6 +554,7 @@ export const runMigrations = (db: Database) => {
     addSessionEffortColumn(db);
     addForkedFromSessionIdColumn(db);
     addTrashedAtColumns(db);
+    addClaudeMdColumn(db);
     ensureProjectsForSessionPaths(db);
     db.exec(SCHEDULED_MESSAGES_TABLE_SCHEMA_SQL);
 

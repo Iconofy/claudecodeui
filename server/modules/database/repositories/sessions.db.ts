@@ -441,6 +441,20 @@ export const sessionsDb = {
     ).run(effort, sessionId);
   },
 
+  /** CLAUDE.md variant of one session: undefined = no such session, null = none recorded yet. */
+  getSessionClaudeMd(sessionId: string): string | null | undefined {
+    const db = getConnection();
+    const row = db.prepare('SELECT claude_md FROM sessions WHERE session_id = ?').get(sessionId) as
+      | { claude_md: string | null }
+      | undefined;
+    return row ? row.claude_md : undefined;
+  },
+
+  setSessionClaudeMd(sessionId: string, value: string): void {
+    const db = getConnection();
+    db.prepare('UPDATE sessions SET claude_md = ? WHERE session_id = ?').run(value, sessionId);
+  },
+
   updateSessionCustomName(sessionId: string, customName: string): void {
     const db = getConnection();
     db.prepare(

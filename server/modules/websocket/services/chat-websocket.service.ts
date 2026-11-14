@@ -5,6 +5,7 @@ import type { WebSocket } from 'ws';
 
 import { sessionsDb } from '@/modules/database/index.js';
 import {
+  claudeMdService,
   MAX_CONCURRENT_SIDE_QUESTIONS_PER_SESSION,
   providerCapabilitiesService,
   providerModelsService,
@@ -281,6 +282,11 @@ async function dispatchRun(
   }
   if (typeof clientOptions.effort === 'string' && clientOptions.effort.trim()) {
     providerModelsService.setSessionEffort(provider, sessionId, clientOptions.effort);
+  }
+  // A Claude chat records the CLAUDE.md variant it first runs with; later
+  // changes go through the swapper or "Use current" in the composer.
+  if (provider === 'claude' && claudeMdService.isEnabled() && sessionsDb.getSessionClaudeMd(sessionId) === null) {
+    sessionsDb.setSessionClaudeMd(sessionId, claudeMdService.currentValue());
   }
 
   const uniqueAttachments = readVerifiedAttachments(clientOptions);

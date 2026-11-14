@@ -11,6 +11,8 @@ import { providerSkillsService } from '@/modules/providers/services/skills.servi
 import { sessionConversationsSearchService } from '@/modules/providers/services/session-conversations-search.service.js';
 import { sideQuestionsService } from '@/modules/providers/services/side-questions.service.js';
 import { sessionsService } from '@/modules/providers/services/sessions.service.js';
+import { claudeMdService } from '@/modules/providers/list/claude/claude-md.js';
+import { sessionsDb } from '@/modules/database/index.js';
 import type {
   CustomProviderModelEffort,
   CustomProviderModelInput,
@@ -947,6 +949,57 @@ router.get(
     const sessionId = parseSessionId(req.params.sessionId);
     const providerSessionId = sessionsService.getProviderSessionId(sessionId);
     res.json(createApiSuccessResponse({ sessionId: providerSessionId }));
+  }),
+);
+
+// CLAUDE.md variants (see claude-md.ts): which one a chat uses, and switching.
+const readSessionClaudeMd = (sessionId: string): string | null => {
+  const accepted = sessionsDb.getSessionClaudeMd(sessionId);
+  if (accepted === undefined) {
+    throw new AppError('Session not found.', { code: 'SESSION_NOT_FOUND', statusCode: 404 });
+  }
+  return accepted;
+};
+
+router.get(
+  '/sessions/:sessionId/claude-md',
+  asyncHandler(async (req: Request, res: Response) => {
+    const sessionId = parseSessionId(req.params.sessionId);
+    res.json(createApiSuccessResponse(claudeMdService.status(sessionId, readSessionClaudeMd(sessionId))));
+  }),
+);
+
+router.post(
+  '/sessions/:sessionId/claude-md/confirm',
+  asyncHandler(async (req: Request, res: Response) => {
+    const sessionId = parseSessionId(req.params.sessionId);
+    readSessionClaudeMd(sessionId);
+    const value = claudeMdService.currentValue();
+    sessionsDb.setSessionClaudeMd(sessionId, value);
+    res.json(createApiSuccessResponse(claudeMdService.status(sessionId, value)));
+  }),
+);
+
+router.get(
+  '/claude/md-variants',
+  asyncHandler(async (_req: Request, res: Response) => {
+    res.json(createApiSuccessResponse(claudeMdService.variants()));
+  }),
+);
+
+router.post(
+  '/claude/md-swap',
+  asyncHandler(async (req: Request, res: Response) => {
+    const name = req.body?.name;
+    const sessionId = req.body?.sessionId;
+    const result = claudeMdService.swap(name);
+    if (!result) {
+      throw new AppError('Unknown CLAUDE.md variant.', { code: 'INVALID_VARIANT', statusCode: 400 });
+    }
+    if (typeof sessionId === 'string' && sessionsDb.getSessionClaudeMd(sessionId) !== undefined) {
+      sessionsDb.setSessionClaudeMd(sessionId, name);
+    }
+    res.json(createApiSuccessResponse(result));
   }),
 );
 

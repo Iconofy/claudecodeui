@@ -40,6 +40,7 @@ import { ScheduledMessageList } from '@/modules/chat/composer/ScheduledMessageLi
 import ComposerModelMenu from '@/modules/chat/composer/ComposerModelMenu';
 import ComposerPermissionMenu from '@/modules/chat/composer/ComposerPermissionMenu';
 import ComposerSendMenu from '@/modules/chat/composer/ComposerSendMenu';
+import { ClaudeMdBanner, ClaudeMdMenu } from '@/modules/chat/composer/ClaudeMdControls';
 
 type MentionableFile = {
   name: string;
@@ -318,6 +319,8 @@ export default function ChatComposer({
         onCancel={onCancelScheduledMessage}
       />
 
+      <ClaudeMdBanner />
+
       {isEditingSentMessage && (
         <div className="mx-auto mb-2 flex max-w-[54.25rem] items-center gap-2 rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-foreground">
           <PencilIcon className="h-3.5 w-3.5 shrink-0 text-amber-600 dark:text-amber-400" />
@@ -525,6 +528,8 @@ export default function ChatComposer({
               onSelectModel={onSelectModel}
               modelsLoading={modelsLoading}
             />
+
+            <ClaudeMdMenu />
 
             <ComposerPermissionMenu
               permissionMode={permissionMode}

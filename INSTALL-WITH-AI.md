@@ -51,7 +51,16 @@ paste it to you for that step. Do not install anything system-wide without askin
    by me (on macOS/Linux: chmod 600), and never print tokens back in full. Then tell me to
    reload the web page: the accounts appear under "Account" in the model menu.
 
-7. Finish with a short summary: where it is installed, how to start and stop it, and how
+7. Ask me if I keep more than one global CLAUDE.md (for example one per kind of work) and
+   want to switch between them per chat. If yes, follow "CLAUDE.md variants" in FORK.md:
+   create the folder `claude-md` inside my Claude config folder (`~/.claude/claude-md/`, or
+   `$CLAUDE_CONFIG_DIR/claude-md/` if I set that), and move or copy each version there as
+   `CLAUDE_<short name>.md` (ask me for the names). Copy my current `~/.claude/CLAUDE.md`
+   there first so nothing is lost; never delete or overwrite `CLAUDE.md` itself. Then tell me
+   to reload the web page: an "MD" / variant button appears next to the model button, each
+   chat remembers its choice, and I should edit the files in `claude-md/` from now on.
+
+8. Finish with a short summary: where it is installed, how to start and stop it, and how
    to update it later (the in-app Update button, or `git pull`, then `npm ci`,
    `npm run build`, and a restart). Remind me not to run
    `npm install -g @cloudcli-ai/cloudcli`, which installs the original app without these
