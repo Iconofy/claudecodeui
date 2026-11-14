@@ -814,12 +814,44 @@ export function useChatProviderState({ selectedSession, selectedProject: _select
     applyProviderCatalog(targetProvider, body.data.models);
   }, [applyProviderCatalog]);
 
+  /** Applies the catalog of a layout change (order or built-in edit) the server returned. */
+  const applyLayoutResponse = useCallback(async (
+    targetProvider: LLMProvider,
+    response: Response,
+    failure: string,
+  ) => {
+    const body = (await response.json()) as ProviderModelMutationApiResponse;
+    if (!response.ok || !body.success || !body.data?.models) {
+      throw new Error(body.error?.message || failure);
+    }
+
+    applyProviderCatalog(targetProvider, body.data.models);
+  }, [applyProviderCatalog]);
+
+  const reorderModels = useCallback(async (targetProvider: LLMProvider, order: string[]) => {
+    const response = await api.providers.setModelOrder(targetProvider, order);
+    await applyLayoutResponse(targetProvider, response, 'Unable to save the model order.');
+  }, [applyLayoutResponse]);
+
+  const editBuiltinModel = useCallback(async (
+    targetProvider: LLMProvider,
+    value: string,
+    edit: { label: string; id: string } | null,
+  ) => {
+    const response = edit
+      ? await api.providers.editBuiltinModel(targetProvider, value, edit)
+      : await api.providers.resetBuiltinModel(targetProvider, value);
+    await applyLayoutResponse(targetProvider, response, 'Unable to save this model.');
+  }, [applyLayoutResponse]);
+
   const providerModelActions = useMemo<ProviderModelActions>(() => ({
     create: createCustomModel,
     update: updateCustomModel,
     remove: removeCustomModel,
     setCustomModelsOnly,
-  }), [createCustomModel, removeCustomModel, setCustomModelsOnly, updateCustomModel]);
+    reorder: reorderModels,
+    editBuiltin: editBuiltinModel,
+  }), [createCustomModel, editBuiltinModel, removeCustomModel, reorderModels, setCustomModelsOnly, updateCustomModel]);
 
   return {
     provider,

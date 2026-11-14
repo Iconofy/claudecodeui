@@ -101,6 +101,9 @@ export default function ModelLibraryPanel({
   const builtInModelsHidden = customModelsOnly && customModels.length > 0;
   const savingCustomModelsOnly = customModelsOnlySavingProviders.includes(selectedProvider);
   const customModelsOnlyError = customModelsOnlyErrors[selectedProvider];
+  // Only the Claude runtime sends an edited built-in's new model ID to its CLI.
+  const canEditBuiltins = selectedProvider === 'claude' && Boolean(actions.editBuiltin);
+  const editingBuiltin = Boolean(editing && !editing.isCustom);
 
   const resetForm = () => {
     setEditing(null);
@@ -136,7 +139,7 @@ export default function ModelLibraryPanel({
   const startEditing = (option: ProviderModelOption) => {
     setEditing(option);
     setModel(option.label);
-    setModelId(option.value);
+    setModelId(option.cliModel ?? option.value);
     setEffortLevels(option.effort?.values.map((level) => level.value) ?? []);
     setConfirmDeleteRecordId(null);
     setNotice(null);
@@ -189,7 +192,13 @@ export default function ModelLibraryPanel({
     setError(null);
     setNotice(null);
     try {
-      if (editing) {
+      if (editing && !editing.isCustom) {
+        if (!actions.editBuiltin) {
+          throw new Error('This model cannot be edited.');
+        }
+        await actions.editBuiltin(selectedProvider, editing.value, { label: normalizedModel, id: normalizedId });
+        setNotice(`${normalizedModel} was updated.`);
+      } else if (editing) {
         await actions.update(selectedProvider, editing, {
           model: normalizedModel,
           id: normalizedId,
@@ -234,6 +243,24 @@ export default function ModelLibraryPanel({
     }
   };
 
+  const handleResetBuiltin = async (option: ProviderModelOption) => {
+    if (!actions.editBuiltin) {
+      return;
+    }
+
+    setError(null);
+    setNotice(null);
+    try {
+      await actions.editBuiltin(selectedProvider, option.value, null);
+      if (editing?.value === option.value) {
+        resetForm();
+      }
+      setNotice(`${option.builtinLabel ?? option.label} was restored.`);
+    } catch (caughtError) {
+      setError(caughtError instanceof Error ? caughtError.message : t('chat:misc.modelSaveFailed'));
+    }
+  };
+
   return (
     <div className="flex h-full min-h-0 flex-col gap-4">
       <div className="flex shrink-0 flex-col gap-3 border-b border-border/70 pb-4 sm:flex-row sm:items-start sm:justify-between">
@@ -245,7 +272,7 @@ export default function ModelLibraryPanel({
             <div>
               <p className="text-base font-semibold tracking-tight text-foreground">Model library</p>
               <p className="text-xs leading-5 text-muted-foreground">
-                Add model IDs supported by your provider. Built-in models stay locked.
+                Add model IDs supported by your provider. Claude built-in models can be renamed and re-pointed.
               </p>
             </div>
           </div>
@@ -288,7 +315,7 @@ export default function ModelLibraryPanel({
           <div className="flex items-start justify-between gap-3">
             <div>
               <p className="text-sm font-semibold text-foreground">
-                {editing ? 'Edit custom model' : 'Add a custom model'}
+                {editing ? (editingBuiltin ? 'Edit built-in model' : 'Edit custom model') : 'Add a custom model'}
               </p>
               <p className="mt-1 text-xs leading-5 text-muted-foreground">
                 The ID is sent to {selectedProviderLabel} exactly as written.
@@ -338,7 +365,7 @@ export default function ModelLibraryPanel({
             Use the exact identifier accepted by the provider CLI. IDs cannot contain spaces.
           </p>
 
-          {providerEffortLevels.length > 0 && (
+          {providerEffortLevels.length > 0 && !editingBuiltin && (
             <fieldset className="mt-4">
               <legend className="text-xs font-semibold text-foreground">
                 {t('chat:modelLibrary.effortLevels')}
@@ -497,7 +524,9 @@ export default function ModelLibraryPanel({
             <div className="mb-2 flex items-center justify-between gap-3 px-1">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.14em] text-foreground">Built-in models</p>
-                <p className="mt-0.5 text-[11px] text-muted-foreground">Maintained by CloudCLI and read-only</p>
+                <p className="mt-0.5 text-[11px] text-muted-foreground">
+                  {canEditBuiltins ? 'Name and ID editable; Reset restores the default' : 'Maintained by CloudCLI and read-only'}
+                </p>
               </div>
               {!builtInModelsHidden && (
                 <Badge variant="secondary" className="rounded-full text-[10px]">{predefinedModels.length}</Badge>
@@ -512,11 +541,41 @@ export default function ModelLibraryPanel({
               <div className="overflow-hidden rounded-2xl border border-border/70 bg-background/70">
                 {predefinedModels.map((option) => (
                   <div key={option.recordId ?? option.value} className="flex items-center gap-3 border-b border-border/60 px-3 py-2.5 last:border-b-0">
-                    <LockKeyhole className="h-3.5 w-3.5 shrink-0 text-muted-foreground/70" />
+                    {!canEditBuiltins && <LockKeyhole className="h-3.5 w-3.5 shrink-0 text-muted-foreground/70" />}
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-xs font-medium text-foreground">{option.label}</p>
-                      <p className="truncate font-mono text-[10px] text-muted-foreground">{option.value}</p>
+                      <div className="flex items-center gap-2">
+                        <p className="truncate text-xs font-medium text-foreground">{option.label}</p>
+                        {option.edited && <Badge className="rounded-full px-2 py-0 text-[9px]">Edited</Badge>}
+                      </div>
+                      <p className="truncate font-mono text-[10px] text-muted-foreground">
+                        {option.edited ? `${option.cliModel} · was ${option.builtinLabel}` : option.value}
+                      </p>
                     </div>
+                    {canEditBuiltins && (
+                      <div className="flex shrink-0 items-center gap-1">
+                        {option.edited && (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => void handleResetBuiltin(option)}
+                            className="h-8 rounded-lg"
+                          >
+                            Reset
+                          </Button>
+                        )}
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => startEditing(option)}
+                          className="h-8 w-8 rounded-lg"
+                          aria-label={`Edit ${option.label}`}
+                        >
+                          <Pencil className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>

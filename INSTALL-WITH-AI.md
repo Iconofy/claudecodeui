@@ -62,7 +62,10 @@ paste it to you for that step. Do not install anything system-wide without askin
 
 8. Finish with a short summary: where it is installed, how to start and stop it, and how
    to update it later (the in-app Update button, or `git pull`, then `npm ci`,
-   `npm run build`, and a restart). Remind me not to run
+   `npm run build`, and a restart). Mention that the model list in the model menu can be
+   reordered by dragging the grip on each row, and that built-in Claude models can be renamed
+   and pointed at another model ID with the pencil in the Model library ("Add model"); neither
+   needs any setup. Remind me not to run
    `npm install -g @cloudcli-ai/cloudcli`, which installs the original app without these
    changes.
 ````

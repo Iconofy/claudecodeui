@@ -73,6 +73,8 @@ type ChatComposerProps = {
   model: string;
   availableModelOptions: ProviderModelOption[];
   onSelectModel: (model: string) => void;
+  /** Saves a new order of the model list; omitted when the catalog cannot be reordered. */
+  onReorderModels?: (order: string[]) => Promise<void>;
   modelsLoading: boolean;
   tokenBudget: Record<string, unknown> | null;
   onShowTokenUsage: () => void;
@@ -159,6 +161,7 @@ export default function ChatComposer({
   model,
   availableModelOptions,
   onSelectModel,
+  onReorderModels,
   modelsLoading,
   tokenBudget,
   onShowTokenUsage,
@@ -526,6 +529,7 @@ export default function ChatComposer({
               model={model}
               modelOptions={availableModelOptions}
               onSelectModel={onSelectModel}
+              onReorderModels={onReorderModels}
               modelsLoading={modelsLoading}
             />
 

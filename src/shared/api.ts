@@ -442,6 +442,12 @@ export const api = {
       del(`/api/providers/${provider}/models/${recordId}`),
     setCustomModelsOnly: (provider: string, enabled: boolean) =>
       put(`/api/providers/${provider}/models/custom-only`, { enabled }),
+    setModelOrder: (provider: string, order: string[]) =>
+      put(`/api/providers/${provider}/models/order`, { order }),
+    editBuiltinModel: (provider: string, value: string, edit: { label: string; id: string }) =>
+      put(`/api/providers/${provider}/models/builtin/${encodeURIComponent(value)}`, edit),
+    resetBuiltinModel: (provider: string, value: string) =>
+      del(`/api/providers/${provider}/models/builtin/${encodeURIComponent(value)}`),
     dismissSideQuestion: (sessionId: string, sideQuestionId: string) =>
       del(
         `/api/providers/sessions/${encodeURIComponent(sessionId)}/side-questions/${encodeURIComponent(sideQuestionId)}`,

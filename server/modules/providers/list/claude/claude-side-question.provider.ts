@@ -210,6 +210,8 @@ export async function askClaudeSideQuestion(
     createQuery?: ProviderRuntimeContext['createQuery'];
     liveTasks: BackgroundTaskSummary[];
     now?: () => number;
+    /** Merged catalog, used to send an edited built-in's model ID (`cliModel`). */
+    getProviderModels?: ProviderRuntimeContext['getProviderModels'];
   },
 ): Promise<SideQuestionOutcome> {
   const createQueryFn = deps.createQuery
@@ -219,12 +221,21 @@ export async function askClaudeSideQuestion(
 
   // The fork must run on the session's account, with the plain model id.
   const accountModel = splitClaudeAccountModel(request.model);
+  let model = accountModel.model;
+  if (model && deps.getProviderModels) {
+    try {
+      const catalog = await deps.getProviderModels();
+      model = catalog.OPTIONS.find((option) => option.value === model)?.cliModel || model;
+    } catch {
+      // Without the catalog the fork still runs, on the built-in value.
+    }
+  }
   return runSideQuestionQuery(request, sink, promptText, {
     ...(accountModel.account ? { env: applyClaudeAccountEnv({ ...process.env }, accountModel.account) } : {}),
     resume: request.providerSessionId ?? undefined,
     forkSession: true,
     // Keeps the fork on the session's prompt cache; left unset lets the SDK
     // pick its own default instead of sending another provider's model id.
-    model: accountModel.model || undefined,
+    model: model || undefined,
   }, createQueryFn);
 }

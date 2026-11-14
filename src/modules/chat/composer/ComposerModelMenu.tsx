@@ -1,13 +1,14 @@
 import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
-import { ChevronDown, ChevronRight } from 'lucide-react';
+import { ChevronDown, ChevronRight, GripVertical } from 'lucide-react';
 
 import type { ProviderModelOption } from '@/shared/types';
 import { DEFAULT_EFFORT_VALUE } from '@/shared/constants';
 import { isAccountModelCopy, joinAccountModel, listModelAccounts, splitAccountModel } from '@/shared/utils';
 import { useComposerMenuAnchor } from '@/modules/chat/hooks/useComposerMenuAnchor';
 import { useUltracodeToggle } from '@/modules/chat/hooks/useUltracodeToggle';
+import { MODEL_ROW_ATTRIBUTE, useModelOrderDrag } from '@/modules/chat/composer/useModelOrderDrag';
 import {
   ComposerMenuHeading,
   ComposerMenuItem,
@@ -26,6 +27,8 @@ type ComposerModelMenuProps = {
   /** Model catalog for the active provider; empty hides the section. */
   modelOptions: ProviderModelOption[];
   onSelectModel: (model: string) => void;
+  /** Saves a new order of the model list; without it the rows have no drag grip. */
+  onReorderModels?: (order: string[]) => Promise<void>;
   modelsLoading: boolean;
 };
 
@@ -40,6 +43,7 @@ function ComposerModelMenu({
   model,
   modelOptions,
   onSelectModel,
+  onReorderModels,
   modelsLoading,
 }: ComposerModelMenuProps) {
   const { t } = useTranslation('chat');
@@ -71,6 +75,14 @@ function ComposerModelMenu({
   // models, and the accounts as their own section.
   const plainModelOptions = useMemo(() => modelOptions.filter((option) => !isAccountModelCopy(option)), [modelOptions]);
   const accounts = useMemo(() => listModelAccounts(modelOptions), [modelOptions]);
+  const plainModelValues = useMemo(() => plainModelOptions.map((option) => option.value), [plainModelOptions]);
+  const { order: modelOrder, draggingValue, gripProps } = useModelOrderDrag(plainModelValues, onReorderModels);
+  const orderedModelOptions = useMemo(
+    () => modelOrder
+      .map((value) => plainModelOptions.find((option) => option.value === value))
+      .filter((option): option is ProviderModelOption => Boolean(option)),
+    [modelOrder, plainModelOptions],
+  );
   const { accountId, model: plainModel } = splitAccountModel(model, modelOptions);
   const plainModelOption = plainModelOptions.find((option) => option.value === plainModel) ?? null;
   const accountLabel = accounts.find((account) => account.id === accountId)?.label ?? '';
@@ -189,16 +201,35 @@ function ComposerModelMenu({
                       {t('composer.loadingModels', { defaultValue: 'Loading models…' })}
                     </p>
                   )}
-                  {plainModelOptions.map((option) => (
-                    <ComposerMenuItem
+                  {orderedModelOptions.map((option) => (
+                    <div
                       key={option.value}
-                      label={option.label || option.value}
-                      isSelected={option.value === plainModel}
-                      onSelect={() => {
-                        onSelectModel(joinAccountModel(accountId, option.value));
-                        setIsOpen(false);
-                      }}
-                    />
+                      {...{ [MODEL_ROW_ATTRIBUTE]: option.value }}
+                      className={`flex items-center${draggingValue === option.value ? ' opacity-60' : ''}`}
+                    >
+                      <div className="min-w-0 flex-1">
+                        <ComposerMenuItem
+                          label={option.label || option.value}
+                          isSelected={option.value === plainModel}
+                          onSelect={() => {
+                            onSelectModel(joinAccountModel(accountId, option.value));
+                            setIsOpen(false);
+                          }}
+                        />
+                      </div>
+                      {onReorderModels && (
+                        // On the right: on a phone the menu can reach past the left screen edge.
+                        <span
+                          role="button"
+                          aria-label={`Drag ${option.label || option.value} to reorder`}
+                          title="Drag to reorder"
+                          className="flex h-7 w-7 shrink-0 cursor-grab touch-none select-none items-center justify-center text-muted-foreground"
+                          {...gripProps(option.value)}
+                        >
+                          <GripVertical className="h-3.5 w-3.5" />
+                        </span>
+                      )}
+                    </div>
                   ))}
                 </>
               )}

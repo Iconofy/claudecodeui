@@ -406,6 +406,12 @@ function ChatInterface({
     }
   }, [currentSessionId, provider, selectProviderModel, selectedSession?.id]);
 
+  // Rejections reach the model menu, which puts the rows back in their old order.
+  const handleReorderComposerModels = useMemo(() => {
+    const reorder = providerModelActions?.reorder;
+    return reorder ? (order: string[]) => reorder(provider, order) : undefined;
+  }, [provider, providerModelActions]);
+
   const handleSelectComposerEffort = useCallback(async (effort: string) => {
     try {
       await selectProviderEffort(provider, effort, currentSessionId || selectedSession?.id || null);
@@ -541,6 +547,7 @@ function ChatInterface({
           model={currentProviderModel}
           availableModelOptions={currentProviderModelOptions}
           onSelectModel={handleSelectComposerModel}
+          onReorderModels={handleReorderComposerModels}
           modelsLoading={providerModelsLoading}
           tokenBudget={tokenBudget}
           onShowTokenUsage={showCostModal}

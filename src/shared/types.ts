@@ -29,6 +29,12 @@ export type ProviderModelOption = {
    * account separately.
    */
   account?: { id: string; label: string };
+  /** Claude: the model ID the CLI receives for a built-in the user edited in the model library. */
+  cliModel?: string;
+  /** True on a built-in model the user edited (model library). */
+  edited?: boolean;
+  /** Label of an edited built-in before the edit, shown next to its Reset action. */
+  builtinLabel?: string;
 };
 
 /**
@@ -70,6 +76,10 @@ export type ProviderModelActions = {
   remove(provider: LLMProvider, existing: ProviderModelOption): Promise<void>;
   /** Turns the provider's "use only my models" flag on or off. */
   setCustomModelsOnly(provider: LLMProvider, enabled: boolean): Promise<void>;
+  /** Saves the order of the provider's model list (model values, first = top). */
+  reorder?(provider: LLMProvider, order: string[]): Promise<void>;
+  /** Gives a Claude built-in a new name and model ID, or restores it with `null`. */
+  editBuiltin?(provider: LLMProvider, value: string, edit: { label: string; id: string } | null): Promise<void>;
 };
 
 // ---------------------------

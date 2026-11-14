@@ -52,6 +52,22 @@ Please report problems with the changes below to this fork, not to the upstream 
 - **Running timer** counts the current turn of a terminal Claude session, not the time since
   the CLI process started.
 
+### Models
+- **Drag to reorder the model list.** In the composer's model menu, drag a model by the grip
+  on the right of its row (mouse or touch). The order is saved on the server, so every device
+  and every model picker (new-chat dialog, `/models`) uses it. Models added later go to the end.
+- **Claude built-in models are editable.** In the Model library ("Add model" / "Manage
+  models"), the pencil on a built-in Claude model changes its name and the model ID sent to the
+  Claude CLI, for example to point "Fable" at a newer model before CloudCLI ships it. Its
+  internal value stays the same, so existing chats, extra accounts, reasoning levels and
+  Ultracode keep working. An edited model shows "Edited" and a **Reset** button. A custom model
+  with the same ID is hidden while the edit exists.
+- API: `PUT /api/providers/:provider/models/order` `{ order: string[] }`,
+  `PUT /api/providers/claude/models/builtin/:value` `{ label, id }`, and `DELETE` on the same
+  path to reset. Catalog options of edited built-ins carry `cliModel`, `edited` and
+  `builtinLabel`. Database: one `app_config` row per provider,
+  `provider_models_layout:<provider>` (JSON `{ order, edits }`); no schema change.
+
 ### Extra Claude accounts
 - Add any number of Claude accounts in `~/.cloudcli/claude-accounts.json` and pick the
   account per chat in the model menu ("Account" section). A chat keeps its account when you

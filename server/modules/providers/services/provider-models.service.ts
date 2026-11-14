@@ -126,6 +126,91 @@ const mergeProviderModels = (
   };
 };
 
+/** User layout of one provider's model list: the order and the edits of built-in models. */
+export type ProviderModelLayout = {
+  /** Model values, first = top of every picker. Values not listed follow in catalog order. */
+  order: string[];
+  /** Built-in value -> the name and model ID the user gave it. */
+  edits: Record<string, { label: string; id: string }>;
+};
+
+/** `app_config` key of one provider's model layout (JSON), app-wide like the custom rows. */
+const modelLayoutConfigKey = (provider: LLMProvider): string => `provider_models_layout:${provider}`;
+
+const readModelLayout = (settings: ProviderModelsSettingsStore, provider: LLMProvider): ProviderModelLayout => {
+  try {
+    const parsed: unknown = JSON.parse(settings.get(modelLayoutConfigKey(provider)) || '{}');
+    const record = parsed && typeof parsed === 'object' ? parsed as Record<string, unknown> : {};
+    const order = Array.isArray(record.order)
+      ? record.order.filter((value): value is string => typeof value === 'string')
+      : [];
+    const edits: ProviderModelLayout['edits'] = {};
+    if (record.edits && typeof record.edits === 'object' && !Array.isArray(record.edits)) {
+      for (const [value, edit] of Object.entries(record.edits as Record<string, unknown>)) {
+        const { label, id } = (edit ?? {}) as { label?: unknown; id?: unknown };
+        if (typeof label === 'string' && label && typeof id === 'string' && id) {
+          edits[value] = { label, id };
+        }
+      }
+    }
+    return { order, edits };
+  } catch {
+    // A damaged row must not take every model picker down with it.
+    return { order: [], edits: {} };
+  }
+};
+
+/** The built-in value an option stands for: an account copy "<account>:<model>" follows "<model>". */
+const baseModelValue = (option: ProviderModelOption): string => (
+  option.account && option.value.startsWith(`${option.account.id}:`)
+    ? option.value.slice(option.account.id.length + 1)
+    : option.value
+);
+
+/**
+ * Applies the user's layout to a merged catalog: edited built-ins get the new label and a
+ * `cliModel` (their `value` is unchanged), a custom row with the same ID as an edited built-in
+ * is left out so the model is not listed twice, and the options are sorted by `order`.
+ * Account copies take the order and the edit of the model they copy.
+ */
+export const applyModelLayout = (
+  merged: ProviderModelsDefinition,
+  layout: ProviderModelLayout,
+): ProviderModelsDefinition => {
+  const labels = new Map(merged.OPTIONS.map((option) => [option.value, option.label]));
+  const editedIds = new Set<string>();
+  const edited = merged.OPTIONS.map((option) => {
+    const base = baseModelValue(option);
+    const edit = option.isCustom ? undefined : layout.edits[option.value] ?? layout.edits[base];
+    if (!edit) {
+      return option;
+    }
+    const baseLabel = labels.get(base) ?? option.label;
+    const suffix = option.label.startsWith(baseLabel) ? option.label.slice(baseLabel.length) : '';
+    editedIds.add(edit.id);
+    return {
+      ...option,
+      label: edit.label + suffix,
+      cliModel: edit.id,
+      edited: true,
+      builtinLabel: option.label,
+    };
+  });
+
+  const rank = (option: ProviderModelOption): number => {
+    const exact = layout.order.indexOf(option.value);
+    const index = exact !== -1 ? exact : layout.order.indexOf(baseModelValue(option));
+    return index === -1 ? layout.order.length : index;
+  };
+  const OPTIONS = edited
+    .filter((option) => !(option.isCustom && editedIds.has(option.value)))
+    .map((option, index) => ({ option, index }))
+    .sort((a, b) => rank(a.option) - rank(b.option) || a.index - b.index)
+    .map(({ option }) => option);
+
+  return { ...merged, OPTIONS };
+};
+
 const normalizeCustomModelInput = (input: CustomProviderModelInput): CustomProviderModelInput => ({
   id: input.id.trim(),
   model: input.model.trim(),
@@ -188,16 +273,61 @@ export const createProviderModelsService = (dependencies: ProviderModelsServiceD
     settings.get(customModelsOnlyConfigKey(provider)) === 'true'
   );
 
-  /** Merges the adapter catalog with the provider's stored custom rows and flag. */
+  /** Merges the adapter catalog with the provider's stored custom rows, flag and layout. */
   const readMergedCatalog = (
     provider: LLMProvider,
     predefined: ProviderModelsDefinition,
-  ): ProviderModelsDefinition => mergeProviderModels(
-    provider,
-    predefined,
-    catalog.listCustomProviderModels(provider),
-    isCustomModelsOnly(provider),
+  ): ProviderModelsDefinition => applyModelLayout(
+    mergeProviderModels(
+      provider,
+      predefined,
+      catalog.listCustomProviderModels(provider),
+      isCustomModelsOnly(provider),
+    ),
+    readModelLayout(settings, provider),
   );
+
+  const writeModelLayout = (provider: LLMProvider, layout: ProviderModelLayout): void => {
+    settings.set(modelLayoutConfigKey(provider), JSON.stringify(layout));
+  };
+
+  /** Saves the order of the provider's model list (model values, first = top). */
+  const setModelOrder = async (
+    provider: LLMProvider,
+    order: string[],
+  ): Promise<ProviderModelsDefinition> => {
+    const predefined = await resolveProvider(provider).models.getSupportedModels();
+    writeModelLayout(provider, { ...readModelLayout(settings, provider), order: [...new Set(order)] });
+    return readMergedCatalog(provider, predefined);
+  };
+
+  /**
+   * Gives a built-in model a new name and model ID, or restores it (`edit` null). The
+   * built-in keeps its value; only the runtime sends `cliModel` to the CLI.
+   */
+  const setBuiltinModelEdit = async (
+    provider: LLMProvider,
+    value: string,
+    edit: { label: string; id: string } | null,
+  ): Promise<ProviderModelsDefinition> => {
+    const predefined = await resolveProvider(provider).models.getSupportedModels();
+    if (!predefined.OPTIONS.some((option) => option.value === value && !option.account)) {
+      throw new AppError('Built-in model not found.', {
+        code: 'MODEL_NOT_FOUND',
+        statusCode: 404,
+      });
+    }
+
+    const layout = readModelLayout(settings, provider);
+    const edits = { ...layout.edits };
+    if (edit) {
+      edits[value] = { label: edit.label, id: edit.id };
+    } else {
+      delete edits[value];
+    }
+    writeModelLayout(provider, { ...layout, edits });
+    return readMergedCatalog(provider, predefined);
+  };
 
   const getProviderModels = async (provider: LLMProvider): Promise<ProviderModelsDefinition> => {
     const predefined = await resolveProvider(provider).models.getSupportedModels();
@@ -531,6 +661,8 @@ export const createProviderModelsService = (dependencies: ProviderModelsServiceD
   return {
     getProviderModels,
     setCustomModelsOnly,
+    setModelOrder,
+    setBuiltinModelEdit,
     createCustomModel,
     updateCustomModel,
     deleteCustomModel,

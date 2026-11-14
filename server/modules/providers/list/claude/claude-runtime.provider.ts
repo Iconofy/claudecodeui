@@ -472,6 +472,13 @@ function mapCliOptionsToSDK(options: AnyRecord = {}) {
     options.effortModels || CLAUDE_PREDEFINED_MODELS,
   ));
   applyClaudeUltracodeToggle(sdkOptions, options.ultracode, options.effortModels || CLAUDE_PREDEFINED_MODELS);
+  // A built-in the user re-pointed in the model library keeps its catalog value (effort and
+  // Ultracode were resolved on it above); the CLI gets the model ID the user entered.
+  const catalog: ProviderModelsDefinition = options.effortModels || CLAUDE_PREDEFINED_MODELS;
+  const cliModel = catalog.OPTIONS.find((option) => option.value === sdkOptions.model)?.cliModel;
+  if (cliModel) {
+    sdkOptions.model = cliModel;
+  }
 
   sdkOptions.systemPrompt = {
     type: 'preset',
@@ -2174,6 +2181,7 @@ async function askSideQuestion(
         return askClaudeSideQuestion(request, sink, {
           createQuery: context.createQuery,
           liveTasks: backgroundWork.outstanding(request.appSessionId),
+          getProviderModels: () => context.getProviderModels(),
         });
       }
       return { status: 'error', error: errorMessage(error), answer: '' };
@@ -2206,6 +2214,7 @@ async function askSideQuestion(
   return askClaudeSideQuestion(request, sink, {
     createQuery: context.createQuery,
     liveTasks: backgroundWork.outstanding(request.appSessionId),
+    getProviderModels: () => context.getProviderModels(),
   });
 }
 

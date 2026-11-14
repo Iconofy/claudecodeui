@@ -94,6 +94,16 @@ export type ProviderModelOption = {
    * account separately.
    */
   account?: { id: string; label: string };
+  /**
+   * Claude: the model ID the CLI receives for a built-in whose name and ID the user edited in
+   * the model library. `value` stays the built-in value, so sessions, account copies, effort
+   * and Ultracode keep resolving against it.
+   */
+  cliModel?: string;
+  /** True on a built-in model the user edited (model library). */
+  edited?: boolean;
+  /** Label of an edited built-in before the edit, shown next to its Reset action. */
+  builtinLabel?: string;
 };
 
 /**

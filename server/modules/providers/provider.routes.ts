@@ -686,6 +686,74 @@ router.put(
   }),
 );
 
+/** Saves the order of the model list: `{ order: string[] }` of model values, first = top. */
+router.put(
+  '/:provider/models/order',
+  asyncHandler(async (req: Request, res: Response) => {
+    const provider = parseProvider(req.params.provider);
+    const order = (req.body as { order?: unknown } | undefined)?.order;
+    if (
+      !Array.isArray(order)
+      || order.length > 500
+      || !order.every((value) => typeof value === 'string' && value.length > 0 && value.length <= 200)
+    ) {
+      throw new AppError('order must be a list of model ids.', {
+        code: 'INVALID_MODEL_ORDER',
+        statusCode: 400,
+      });
+    }
+    const models = await providerModelsService.setModelOrder(provider, order as string[]);
+    res.json(createApiSuccessResponse({ provider, models }));
+  }),
+);
+
+/** Only the Claude runtime sends an edited built-in's new model ID to its CLI. */
+const parseBuiltinModelProvider = (req: Request): LLMProvider => {
+  const provider = parseProvider(req.params.provider);
+  if (provider !== 'claude') {
+    throw new AppError('Only Claude built-in models can be edited.', {
+      code: 'MODEL_EDIT_NOT_SUPPORTED',
+      statusCode: 400,
+    });
+  }
+  return provider;
+};
+
+/** Gives a Claude built-in model a new name and model ID: `{ label, id }`. */
+router.put(
+  '/:provider/models/builtin/:value',
+  asyncHandler(async (req: Request, res: Response) => {
+    const provider = parseBuiltinModelProvider(req);
+    const body = (req.body ?? {}) as { label?: unknown; id?: unknown };
+    const label = typeof body.label === 'string' ? body.label.trim() : '';
+    const id = typeof body.id === 'string' ? body.id.trim() : '';
+    if (!label || label.length > 80) {
+      throw new AppError('label must be 1 to 80 characters.', {
+        code: 'INVALID_MODEL_NAME',
+        statusCode: 400,
+      });
+    }
+    if (!id || id.length > 200 || /\s/.test(id)) {
+      throw new AppError('id must be 200 characters or fewer and cannot contain whitespace.', {
+        code: 'INVALID_MODEL_ID',
+        statusCode: 400,
+      });
+    }
+    const models = await providerModelsService.setBuiltinModelEdit(provider, String(req.params.value), { label, id });
+    res.json(createApiSuccessResponse({ provider, models }));
+  }),
+);
+
+/** Restores a Claude built-in model's own name and model ID. */
+router.delete(
+  '/:provider/models/builtin/:value',
+  asyncHandler(async (req: Request, res: Response) => {
+    const provider = parseBuiltinModelProvider(req);
+    const models = await providerModelsService.setBuiltinModelEdit(provider, String(req.params.value), null);
+    res.json(createApiSuccessResponse({ provider, models }));
+  }),
+);
+
 router.post(
   '/:provider/models',
   asyncHandler(async (req: Request, res: Response) => {
