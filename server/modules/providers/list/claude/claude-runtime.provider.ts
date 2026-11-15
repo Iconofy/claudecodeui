@@ -1544,6 +1544,22 @@ async function queryClaudeSDK(
             sdkOptions.disallowedTools = sdkOptions.disallowedTools.filter((entry: string) => entry !== decision.rememberEntry);
           }
         }
+        // Plan card: build with the model picked while the plan waited. Same account only (the
+        // account is the env of this CLI process); another account applies from the next message.
+        // Not awaited: the request is written before the approval returns, so the CLI reads it first.
+        if (toolName === 'ExitPlanMode' && typeof decision.model === 'string' && decision.model) {
+          const wanted = splitClaudeAccountModel(decision.model);
+          const running = splitClaudeAccountModel(resolvedModel || options.model || CLAUDE_PREDEFINED_MODELS.DEFAULT);
+          const wantedModelId = effortModels.OPTIONS.find((option) => option.value === wanted.model)?.cliModel || wanted.model;
+          if ((wanted.account?.id ?? '') !== (running.account?.id ?? '')) {
+            console.warn('[Claude SDK] Plan model on another account is not applied to the running turn:', decision.model);
+          } else if (wantedModelId !== sdkOptions.model) {
+            sdkOptions.model = wantedModelId;
+            Promise.resolve(queryInstance?.setModel?.(wantedModelId)).catch((error: unknown) => {
+              console.warn('[Claude SDK] Unable to switch the model for the plan build:', error);
+            });
+          }
+        }
         const switchToMode = SWITCHABLE_PERMISSION_MODES.has(decision.permissionMode ?? '')
           ? decision.permissionMode
           : null;

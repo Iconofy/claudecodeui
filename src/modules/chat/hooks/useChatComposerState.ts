@@ -17,6 +17,8 @@ import { PROVIDER_PERMISSION_PREFERENCE_KEYS } from '@/shared/constants';
 import { readUserPreference } from '@/shared/userSettings';
 import type { BackgroundSendChoice, BackgroundSendPrompt, CommandModalPayload, CostCommandData, HelpCommandData, MarkSessionProcessing, ModelCommandData, PendingSteer, QueuedDraft, SessionActivityMap, StatusCommandData, SteerOutcome,QueuedSendOptions,ChatAttachment,ChatMessage,PendingPermissionRequest,PermissionMode,SessionEstablishedContext,Project,ProjectSession,LLMProvider,SlashCommand } from '@/shared/types';
 import { grantClaudeToolPermission } from '@/modules/chat/utils/chatPermissions';
+import { isPlanPermissionRequest } from '@/modules/chat/context/PermissionContext';
+import type { PermissionContextValue } from '@/modules/chat/context/PermissionContext';
 import { readUltracodeToggle } from '@/modules/chat/hooks/useUltracodeToggle';
 import { claudeMdBlocksSend, setClaudeMdScope } from '@/modules/chat/composer/ClaudeMdControls';
 import {
@@ -74,6 +76,8 @@ type UseChatComposerStateArgs = {
   addMessage: (msg: ChatMessage) => void;
   setIsUserScrolledUp: (isScrolledUp: boolean) => void;
   setPendingPermissionRequests: Dispatch<SetStateAction<PendingPermissionRequest[]>>;
+  /** While one of these is a plan (ExitPlanMode), a sent message revises the plan instead of being queued. */
+  pendingPermissionRequests?: PendingPermissionRequest[];
   /** From the capability matrix, exactly like `supportsSessionForking`; false until it has loaded. Gates the `/btw` branch. */
   supportsSideQuestions?: boolean;
 };
@@ -281,6 +285,7 @@ export function useChatComposerState({
   addMessage,
   setIsUserScrolledUp,
   setPendingPermissionRequests,
+  pendingPermissionRequests,
 }: UseChatComposerStateArgs) {
   const { t } = useTranslation('chat');
   // The composer text together with the chat scope it belongs to. They are one
@@ -331,6 +336,10 @@ export function useChatComposerState({
     ) => Promise<void>) | null
   >(null);
   const inputValueRef = useRef(input);
+  // Read at send time; `handlePermissionDecision` is defined further down.
+  const pendingPermissionRequestsRef = useRef(pendingPermissionRequests);
+  pendingPermissionRequestsRef.current = pendingPermissionRequests;
+  const handlePermissionDecisionRef = useRef<PermissionContextValue['handlePermissionDecision'] | null>(null);
   const selectedProjectId = selectedProject?.projectId;
   // Prefer the stable backend-allocated id (selectedSession.id) but fall back
   // to currentSessionId for a just-established session that hasn't been
@@ -1174,6 +1183,26 @@ export function useChatComposerState({
         }
       }
 
+      // A plan card is waiting: the turn is paused inside ExitPlanMode, so a queued or
+      // steered message would never be read. The text answers the plan instead (deny +
+      // message): Claude stays in plan mode and revises it.
+      // shortcut: text only, attached files stay in the composer; upgrade if a revise needs images.
+      const waitingPlan = !queuedSubmission && currentInput.trim() && !currentInput.trimStart().startsWith('/')
+        ? (pendingPermissionRequestsRef.current ?? []).find(isPlanPermissionRequest)
+        : undefined;
+      if (waitingPlan) {
+        addMessage({ type: 'user', content: currentInput, timestamp: new Date() });
+        handlePermissionDecisionRef.current?.(waitingPlan.requestId, {
+          allow: false,
+          message: `The user wants the plan changed: ${currentInput.trim()}`,
+        });
+        recordSentMessage(currentInput, sessionKey);
+        clearComposerAfterSideQuestion();
+        setIsUserScrolledUp(false);
+        setTimeout(() => scrollToBottom(), 100);
+        return;
+      }
+
       // A turn is already in flight: stash this message instead of sending it.
       // Upload attached files now so the queued record contains durable image
       // descriptors that can be sent even if another session is open later.
@@ -1827,7 +1856,7 @@ export function useChatComposerState({
   const handlePermissionDecision = useCallback(
     (
       requestIds: string | string[],
-      decision: { allow?: boolean; message?: string; rememberEntry?: string | null; updatedInput?: unknown; permissionMode?: PermissionMode },
+      decision: { allow?: boolean; message?: string; rememberEntry?: string | null; updatedInput?: unknown; permissionMode?: PermissionMode; model?: string },
     ) => {
       const ids = Array.isArray(requestIds) ? requestIds : [requestIds];
       const validIds = ids.filter(Boolean);
@@ -1844,6 +1873,7 @@ export function useChatComposerState({
           message: decision?.message,
           rememberEntry: decision?.rememberEntry,
           permissionMode: decision?.permissionMode,
+          model: decision?.model,
         });
       });
 
@@ -1853,6 +1883,7 @@ export function useChatComposerState({
     },
     [sendMessage, setPendingPermissionRequests],
   );
+  handlePermissionDecisionRef.current = handlePermissionDecision;
 
   const [isInputFocused, setIsInputFocused] = useState(false);
 

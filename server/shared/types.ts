@@ -768,6 +768,8 @@ export type ProviderPermissionDecision = {
   rememberEntry?: unknown;
   /** Permission mode to switch the running session to when the tool is allowed (never `plan`). */
   permissionMode?: string;
+  /** Plan approval only: the model to run the rest of the turn with (same account as the run). */
+  model?: string;
 };
 
 export type ProviderRuntimePermissionGateway = {
@@ -803,6 +805,8 @@ export type ProviderRuntimeContext = {
   createQuery?: (input: { prompt: AsyncIterable<unknown>; options: AnyRecord }) => AsyncIterable<unknown> & {
     interrupt(): Promise<unknown>;
     stopTask?(taskId: string): Promise<void>;
+    /** Switches the running turn's model (plan approval with a picked model). */
+    setModel?(model?: string): Promise<void>;
   };
 };
 

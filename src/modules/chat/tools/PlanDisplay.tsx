@@ -1,5 +1,4 @@
 import React from 'react';
-import { useTranslation } from 'react-i18next';
 import { ChevronsUpDown, FileText } from 'lucide-react';
 
 import {
@@ -14,7 +13,8 @@ import {
   CollapsibleContent,
   Shimmer,
 } from '@/shared/ui';
-import { usePermission } from '@/modules/chat/context/PermissionContext';
+import ComposerModelMenu from '@/modules/chat/composer/ComposerModelMenu';
+import { isPlanPermissionRequest, usePermission } from '@/modules/chat/context/PermissionContext';
 import { MarkdownContent } from '@/modules/chat/tools/ContentRenderers/MarkdownContent';
 
 type PlanDisplayProps = {
@@ -30,7 +30,8 @@ type PlanDisplayProps = {
 
 /**
  * Rendered by chat's ToolRenderer for plan tools (ExitPlanMode), showing the
- * proposed plan inline together with its build/revise permission decision.
+ * proposed plan inline together with its build decision, the model to build with, and a
+ * shortcut to the composer (a message sent while the plan waits revises it).
  */
 export const PlanDisplay: React.FC<PlanDisplayProps> = ({
   title,
@@ -41,16 +42,16 @@ export const PlanDisplay: React.FC<PlanDisplayProps> = ({
   rawContent,
   toolName: _toolName,
 }) => {
-  const { t } = useTranslation();
   const permissionCtx = usePermission();
 
-  const pendingRequest = permissionCtx?.pendingPermissionRequests.find(
-    (r) => r.toolName === 'ExitPlanMode' || r.toolName === 'exit_plan_mode'
-  );
+  const pendingRequest = permissionCtx?.pendingPermissionRequests.find(isPlanPermissionRequest);
 
   const handleBuild = () => {
     if (pendingRequest && permissionCtx) {
-      permissionCtx.handlePermissionDecision(pendingRequest.requestId, { allow: true });
+      permissionCtx.handlePermissionDecision(pendingRequest.requestId, {
+        allow: true,
+        model: permissionCtx.planModelMenu?.model,
+      });
     }
   };
 
@@ -62,15 +63,7 @@ export const PlanDisplay: React.FC<PlanDisplayProps> = ({
       permissionCtx.handlePermissionDecision(pendingRequest.requestId, {
         allow: true,
         permissionMode: 'bypassPermissions',
-      });
-    }
-  };
-
-  const handleRevise = () => {
-    if (pendingRequest && permissionCtx) {
-      permissionCtx.handlePermissionDecision(pendingRequest.requestId, {
-        allow: false,
-        message: t('chat:misc.userAskedRevise'),
+        model: permissionCtx.planModelMenu?.model,
       });
     }
   };
@@ -131,14 +124,17 @@ export const PlanDisplay: React.FC<PlanDisplayProps> = ({
 
         {/* Footer — always visible when permission is pending */}
         {pendingRequest && (
-          <CardFooter className="justify-end gap-2 border-t border-border/40 px-4 pb-3 pt-3">
+          <CardFooter className="flex-wrap justify-end gap-2 border-t border-border/40 px-4 pb-3 pt-3">
+            {/* The model that builds the plan: Build sends it, the server switches the running turn. */}
+            {permissionCtx?.planModelMenu && <ComposerModelMenu {...permissionCtx.planModelMenu} />}
+            {/* A message sent from the composer while the plan waits is the revise text. */}
             <Button
               variant="ghost"
               size="sm"
-              onClick={handleRevise}
+              onClick={() => permissionCtx?.focusComposer?.()}
               className="text-muted-foreground"
             >
-              Revise
+              Change plan…
             </Button>
             <Button variant="outline" size="sm" onClick={handleBuildWithBypass}>
               Build &amp; bypass mode

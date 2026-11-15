@@ -5,7 +5,7 @@ import { ArrowDownIcon } from 'lucide-react';
 import { useTasksSettings } from '@/modules/task-master';
 import { usePaletteOpsRegister } from '@/modules/command-palette';
 import { useWebSocket } from '@/shared/context/WebSocketContext';
-import PermissionContext from '@/modules/chat/context/PermissionContext';
+import PermissionContext, { isPlanPermissionRequest } from '@/modules/chat/context/PermissionContext';
 import { MarkdownWorkspaceContext } from '@/modules/chat/context/MarkdownWorkspaceContext';
 import { TranscriptSessionContext } from '@/modules/chat/context/TranscriptSessionContext';
 import { api } from '@/shared/api';
@@ -268,6 +268,7 @@ function ChatInterface({
     addMessage,
     setIsUserScrolledUp,
     setPendingPermissionRequests,
+    pendingPermissionRequests,
     resolvePermissionModeForProvider,
     supportsSideQuestions,
   });
@@ -382,12 +383,6 @@ function ChatInterface({
     }
   }, [currentProviderEffort, currentProviderModel, input, permissionMode, scheduleMessage, setInput]);
 
-  const permissionContextValue = useMemo(() => ({
-    pendingPermissionRequests,
-    handlePermissionDecision,
-    selectPermissionMode,
-  }), [pendingPermissionRequests, handlePermissionDecision, selectPermissionMode]);
-
   // Lets markdown image paths in the transcript resolve against this project.
   const markdownWorkspaceValue = useMemo(() => ({
     projectId: selectedProject?.projectId ?? null,
@@ -419,6 +414,28 @@ function ChatInterface({
       console.error('Error changing the active session reasoning effort:', error);
     }
   }, [currentSessionId, provider, selectProviderEffort, selectedSession?.id]);
+
+  // The plan card shows the composer's model menu and focuses the composer for a revise.
+  const permissionContextValue = useMemo(() => ({
+    pendingPermissionRequests,
+    handlePermissionDecision,
+    selectPermissionMode,
+    planModelMenu: {
+      effort: currentProviderEffort,
+      effortOptions: currentProviderEffortOptions,
+      onSelectEffort: handleSelectComposerEffort,
+      model: currentProviderModel,
+      modelOptions: currentProviderModelOptions,
+      onSelectModel: handleSelectComposerModel,
+      modelsLoading: providerModelsLoading,
+    },
+    focusComposer: () => textareaRef.current?.focus(),
+  }), [
+    pendingPermissionRequests, handlePermissionDecision, selectPermissionMode,
+    currentProviderEffort, currentProviderEffortOptions, handleSelectComposerEffort,
+    currentProviderModel, currentProviderModelOptions, handleSelectComposerModel,
+    providerModelsLoading, textareaRef,
+  ]);
 
   // Mirrors ChatComposer's own visibility check so the message pane can
   // reserve enough bottom space to keep the floating status tab from
@@ -603,7 +620,9 @@ function ChatInterface({
           onTextareaInput={handleTextareaInput}
           isInputFocused={isInputFocused}
           onInputFocusChange={handleInputFocusChange}
-          placeholder={t('input.placeholder', { provider: selectedProviderLabel })}
+          placeholder={pendingPermissionRequests.some(isPlanPermissionRequest)
+            ? 'Describe what to change in the plan…'
+            : t('input.placeholder', { provider: selectedProviderLabel })}
           isTextareaExpanded={isTextareaExpanded}
           sendByCtrlEnter={sendByCtrlEnter}
           supportsSideQuestions={supportsSideQuestions}

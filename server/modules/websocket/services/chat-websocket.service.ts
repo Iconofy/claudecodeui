@@ -826,6 +826,7 @@ function handlePermissionResponse(data: AnyRecord, dependencies: ChatWebSocketDe
     message: typeof data.message === 'string' ? data.message : undefined,
     rememberEntry: data.rememberEntry,
     permissionMode: typeof data.permissionMode === 'string' ? data.permissionMode : undefined,
+    model: typeof data.model === 'string' ? data.model : undefined,
   });
 }
 
@@ -839,7 +840,7 @@ function handlePermissionResponse(data: AnyRecord, dependencies: ChatWebSocketDe
  * - `chat.abort`               { sessionId }
  * - `chat.stop-task`           { sessionId, taskId }
  * - `chat.subscribe`           { sessions: [{ sessionId, lastSeq? }] }
- * - `chat.permission-response` { requestId, allow, updatedInput?, message?, rememberEntry?, permissionMode? }
+ * - `chat.permission-response` { requestId, allow, updatedInput?, message?, rememberEntry?, permissionMode?, model? }
  *
  * Outbound protocol (server to client): every frame is `kind`-based — either
  * a provider `NormalizedMessage` (with `seq`) or a gateway event

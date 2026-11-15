@@ -39,6 +39,17 @@ Please report problems with the changes below to this fork, not to the upstream 
   both the running turn and the composer to bypass-permissions mode. To allow this, every Claude
   run starts with the SDK's `allowDangerouslySkipPermissions` flag. The flag only lets a run
   switch into that mode; the mode itself is still off until it is chosen.
+- **Changing a plan by typing.** While a plan card waits, the turn is paused inside
+  `ExitPlanMode`, so a queued message would never be read. A message sent from the composer is
+  now the revise text: the plan is declined with "The user wants the plan changed: <text>" and
+  Claude writes a new plan. The "Revise" button is now "Change plan…" and focuses the composer.
+  Text only: files attached to that message stay in the composer. Slash commands are not
+  treated as a revise.
+- **Model for the build.** The plan card shows the composer's model menu. Build and Build &
+  bypass send the chosen model with the approval (`chat.permission-response` field `model`), and
+  the server switches the running turn with the SDK's `setModel`. A model on another Claude
+  account is not applied to the running turn (the account is the CLI process's environment); it
+  applies from the next message. Reasoning effort is not changed inside a running turn.
 - **Esc no longer stops a running turn.** Use the Stop button. The "esc" hint on Stop is gone.
 - **Loading indicator** ("Loading all messages...") while a search hit loads the whole
   transcript before it jumps to the message.
